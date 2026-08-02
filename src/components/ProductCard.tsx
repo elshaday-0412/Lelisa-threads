@@ -9,7 +9,7 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const { toggleWishlist, isWishlisted, setQuickViewProduct, addToCart, formatPrice } = useApp();
+  const { toggleWishlist, isWishlisted, setQuickViewProduct, addToCart, formatPrice, t } = useApp();
   const wishlisted = isWishlisted(product.id);
 
   return (
@@ -32,21 +32,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
           {product.stock <= 0 ? (
             <span className="bg-red-600 text-white text-[9px] uppercase tracking-widest px-2 py-0.5 font-bold rounded-sm shadow-sm">
-              Out of Stock
+              {t.outOfStock}
             </span>
           ) : product.stock <= 5 ? (
             <span className="bg-amber-600 text-white text-[9px] uppercase tracking-widest px-2 py-0.5 font-bold rounded-sm shadow-sm">
-              Only {product.stock} Left
+              {product.stock} {t.onlyLeft}
             </span>
           ) : null}
           {product.isFeatured && (
             <span className="bg-[#1A1A1A] text-white text-[9px] uppercase tracking-widest px-2 py-0.5 font-semibold rounded-sm">
-              Featured
+              {t.featured}
             </span>
           )}
           {product.isNewArrival && (
             <span className="bg-[#C5A059] text-white text-[9px] uppercase tracking-widest px-2 py-0.5 font-semibold rounded-sm">
-              New
+              {t.newBadge}
             </span>
           )}
         </div>
@@ -78,7 +78,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             className="flex-1 bg-white/95 hover:bg-white text-[#1A1A1A] text-[10px] uppercase tracking-widest py-2.5 font-bold rounded-sm shadow-md flex items-center justify-center gap-1.5 transition-colors"
           >
             <Eye className="w-3.5 h-3.5 text-[#C5A059]" />
-            Quick View
+            {t.quickView}
           </button>
 
           <button
@@ -94,7 +94,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : 'bg-[#1A1A1A] hover:bg-[#C5A059] text-white'
             }`}
-            title={product.stock <= 0 ? 'Out of Stock' : 'Quick Add to Bag'}
+            title={product.stock <= 0 ? t.outOfStock : t.quickAdd}
           >
             <ShoppingBag className="w-4 h-4" />
           </button>

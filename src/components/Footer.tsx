@@ -4,11 +4,11 @@ import { useApp } from '../context/AppContext.js';
 import { Sparkles, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
 
 export const Footer: React.FC = () => {
-  const { showToast } = useApp();
+  const { showToast, t } = useApp();
 
   const handleNewsletter = (e: React.FormEvent) => {
     e.preventDefault();
-    showToast('Subscribed to VIP Drops', 'Thank you for joining Habesha Threads heritage circle.', 'success');
+    showToast('Subscribed to VIP Drops', 'Thank you for joining Lelisa Threads heritage circle.', 'success');
   };
 
   return (
@@ -43,7 +43,7 @@ export const Footer: React.FC = () => {
         <div className="space-y-4">
           <Link to="/" className="inline-block">
             <span className="text-2xl font-serif italic tracking-tight text-[#C5A059] font-bold">
-              Habesha Threads
+              Lelisa Threads
             </span>
           </Link>
           <p className="text-xs text-white/60 leading-relaxed font-light">
@@ -129,7 +129,7 @@ export const Footer: React.FC = () => {
               type="submit"
               className="bg-[#C5A059] text-[#1A1A1A] px-4 py-2 text-[10px] uppercase tracking-widest font-bold rounded-r-sm hover:bg-white transition-colors"
             >
-              Join
+              {t.subscribe}
             </button>
           </form>
         </div>
@@ -138,18 +138,15 @@ export const Footer: React.FC = () => {
       {/* Bottom Bar matching Clean Minimalism design HTML */}
       <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] uppercase tracking-[0.2em] font-medium">
         <div className="flex gap-8 opacity-60">
-          <span>Free Shipping Globally</span>
-          <span>Authentic Craftsmanship</span>
-          <span>Secure Payments</span>
+          <span>{t.expressDelivery}</span>
+          <span>{t.artisanCrafted}</span>
+          <span>{t.securePayments}</span>
         </div>
         <div className="flex gap-6">
           <Link to="/" className="opacity-60 hover:opacity-100">
-            Terms
+            {t.privacy}
           </Link>
-          <Link to="/" className="opacity-60 hover:opacity-100">
-            Privacy
-          </Link>
-          <span className="text-[#C5A059]">© 2026 Habesha Threads</span>
+          <span className="text-[#C5A059]">{t.copyright}</span>
         </div>
       </div>
     </footer>

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Product, CartItem, User } from '../types/index.js';
 import { WishlistService } from '../services/api.js';
 
+import { Language, Translations, translations } from '../translations/translations.js';
+
 export interface ToastMessage {
   id: string;
   title: string;
@@ -50,6 +52,16 @@ interface AppContextType {
   formatPrice: (amountInBirr: number) => string;
   currencyMode: 'ETB' | 'USD';
   setCurrencyMode: (mode: 'ETB' | 'USD') => void;
+
+  // Dark Mode
+  isDarkMode: boolean;
+  setIsDarkMode: (dark: boolean) => void;
+  toggleDarkMode: () => void;
+
+  // Language & Translation
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: Translations;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -92,6 +104,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Currency display toggle (ETB vs USD luxury reference)
   const [currencyMode, setCurrencyMode] = useState<'ETB' | 'USD'>('ETB');
+
+  // Dark Mode State with localStorage persistence & system preference check
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('ht_theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(prev => !prev);
+  };
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('ht_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('ht_theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  // Language State (EN, AM, OM)
+  const [language, setLanguageState] = useState<Language>(() => {
+    const saved = localStorage.getItem('ht_lang');
+    if (saved === 'AM' || saved === 'OM' || saved === 'EN') return saved as Language;
+    return 'EN';
+  });
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem('ht_lang', lang);
+  };
+
+  const t = translations[language] || translations.EN;
 
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -318,7 +365,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         removeToast,
         formatPrice,
         currencyMode,
-        setCurrencyMode
+        setCurrencyMode,
+        isDarkMode,
+        setIsDarkMode,
+        toggleDarkMode,
+        language,
+        setLanguage,
+        t
       }}
     >
       {children}

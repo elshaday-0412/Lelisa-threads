@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext.js';
 import { OrderService, PaymentService } from '../services/api.js';
 import { useNavigate, Link } from 'react-router-dom';
@@ -6,12 +6,12 @@ import { ShieldCheck, Truck, CheckCircle2, Lock, ArrowRight, Smartphone, Buildin
 import { Order, PaymentReceipt } from '../types/index.js';
 
 export const Checkout: React.FC = () => {
-  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast } = useApp();
+  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, t } = useApp();
   const navigate = useNavigate();
 
   const [customerName, setCustomerName] = useState(user ? user.fullName : '');
   const [customerEmail, setCustomerEmail] = useState(user ? user.email : '');
-  const [customerPhone, setCustomerPhone] = useState(user?.phone || '+251 911 234 567');
+  const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
   const [shippingAddress, setShippingAddress] = useState(
     user?.addresses?.[0]?.street || 'Bole Road, Around Friendship Building'
   );
@@ -20,7 +20,7 @@ export const Checkout: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'TELEBIRR' | 'CBE_BIRR' | 'CHAPA' | 'STRIPE_CARD' | 'DIASPORA_CARD' | 'CASH_ON_DELIVERY'>('TELEBIRR');
 
   // Payment gateway form state
-  const [mobileWalletPhone, setMobileWalletPhone] = useState('0911234567');
+  const [mobileWalletPhone, setMobileWalletPhone] = useState(user?.phone || '');
   const [otpPin, setOtpPin] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [cardExp, setCardExp] = useState('08/28');
@@ -30,6 +30,31 @@ export const Checkout: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
+
+  // Sync user details when user logs in or profile changes
+  useEffect(() => {
+    if (user) {
+      if (user.fullName) setCustomerName(user.fullName);
+      if (user.email) setCustomerEmail(user.email);
+      if (user.phone) {
+        setCustomerPhone(user.phone);
+        setMobileWalletPhone(user.phone);
+      }
+      if (user.addresses && user.addresses.length > 0) {
+        if (user.addresses[0].street) setShippingAddress(user.addresses[0].street);
+        if (user.addresses[0].city) setCity(user.addresses[0].city);
+        if (user.addresses[0].region) setRegion(user.addresses[0].region);
+      }
+    }
+  }, [user]);
+
+  const handleCustomerPhoneChange = (val: string) => {
+    setCustomerPhone(val);
+    // Automatically keep mobile wallet phone in sync if not manually detached
+    if (!mobileWalletPhone || mobileWalletPhone === customerPhone || mobileWalletPhone === user?.phone) {
+      setMobileWalletPhone(val);
+    }
+  };
 
   const shippingCost = cartSubtotal > 10000 || cartSubtotal === 0 ? 0 : 350;
   const totalAmount = cartSubtotal + shippingCost;
@@ -315,7 +340,7 @@ export const Checkout: React.FC = () => {
                     required
                     placeholder="+251 911 234 567"
                     value={customerPhone}
-                    onChange={e => setCustomerPhone(e.target.value)}
+                    onChange={e => handleCustomerPhoneChange(e.target.value)}
                     className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
                   />
                 </div>
@@ -485,7 +510,7 @@ export const Checkout: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        setMobileWalletPhone('0911234567');
+                        setMobileWalletPhone(user?.phone || customerPhone || '0911234567');
                         setOtpPin('4829');
                       }}
                       className="text-[10px] uppercase tracking-wider bg-[#C5A059]/15 text-[#C5A059] font-bold px-2.5 py-1 rounded-sm hover:bg-[#C5A059]/25 transition-colors"

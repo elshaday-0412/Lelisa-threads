@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { ProductService } from '../services/api.js';
 import { Product } from '../types/index.js';
 import { ProductCard } from '../components/ProductCard.js';
+import { useApp } from '../context/AppContext.js';
 import { Sparkles, ArrowRight, ShieldCheck, Award, HeartHandshake, Globe2 } from 'lucide-react';
 
 export const Home: React.FC = () => {
+  const { t } = useApp();
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,15 +70,15 @@ export const Home: React.FC = () => {
 
         <div className="max-w-4xl mx-auto relative z-10">
           <span className="text-sm md:text-base font-serif italic tracking-wide text-[#C5A059] font-bold block mb-3">
-            The Habesha Heritage Collection
+            {t.brandName}
           </span>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif font-light text-[#1A1A1A] tracking-tight leading-[1.1] mb-6">
-            Eternal Threads of Culture &amp; Ceremony
+            {t.heroTitle}
           </h1>
 
           <p className="text-sm md:text-base text-gray-600 font-light max-w-2xl mx-auto leading-relaxed mb-10">
-            Handwoven by master artisans in Ethiopia. Each Habesha Kemis, traditional suit, and Axumite jewel carries centuries of Shemma craftsmanship—crafted for weddings, celebrations, and generations.
+            {t.heroSubtitle}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -84,35 +86,39 @@ export const Home: React.FC = () => {
               to="/shop"
               className="w-full sm:w-auto px-8 py-4 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold rounded-sm transition-all shadow-lg flex items-center justify-center gap-2 group"
             >
-              Explore All Collections
+              {t.shopNow}
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
 
             <Link
-              to="/shop?category=Wedding+Collection"
+              to="/?section=heritage"
+              onClick={() => {
+                const el = document.getElementById('heritage-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
               className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-[#F4F1ED] text-[#1A1A1A] border border-[#E5E1DA] hover:border-[#C5A059] text-xs uppercase tracking-[0.2em] font-semibold rounded-sm transition-all"
             >
-              Bridal &amp; Mels Couture
+              {t.exploreHeritage}
             </Link>
           </div>
 
           {/* Key proof points */}
           <div className="mt-14 pt-10 border-t border-[#E5E1DA]/80 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div>
-              <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">100% Cotton</p>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">Authentic Shemma</p>
+              <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">100%</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">{t.artisanCrafted}</p>
             </div>
             <div>
-              <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">Handwoven</p>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">Tilet Embroidery</p>
+              <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">Shemma</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">{t.authenticShemma}</p>
             </div>
             <div>
-              <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">Bespoke Fit</p>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">Custom Tailoring</p>
+              <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">Express</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">{t.expressDelivery}</p>
             </div>
             <div>
-              <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">Global Express</p>
-              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">Addis • US • Europe</p>
+              <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">Telebirr</p>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">{t.securePayments}</p>
             </div>
           </div>
         </div>

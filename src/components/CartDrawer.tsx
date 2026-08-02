@@ -13,7 +13,8 @@ export const CartDrawer: React.FC = () => {
     clearCart,
     cartSubtotal,
     cartCount,
-    formatPrice
+    formatPrice,
+    t
   } = useApp();
   const navigate = useNavigate();
 
@@ -42,7 +43,7 @@ export const CartDrawer: React.FC = () => {
             <div className="flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-[#C5A059]" />
               <h2 className="text-base font-serif italic font-semibold text-[#1A1A1A]">
-                Your Shopping Bag ({cartCount})
+                {t.yourShoppingBag} ({cartCount})
               </h2>
             </div>
             <button
@@ -61,9 +62,9 @@ export const CartDrawer: React.FC = () => {
                 <div className="w-16 h-16 rounded-full bg-[#F4F1ED] flex items-center justify-center mb-4 text-[#C5A059]">
                   <ShoppingBag className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-serif italic mb-1 text-[#1A1A1A]">Your bag is empty</h3>
+                <h3 className="text-lg font-serif italic mb-1 text-[#1A1A1A]">{t.bagEmptyTitle}</h3>
                 <p className="text-xs text-gray-500 font-light max-w-xs mb-6">
-                  Explore our curated collection of Habesha Kemis, men's royal wear, and traditional jewelry.
+                  {t.bagEmptySubtitle}
                 </p>
                 <button
                   onClick={() => {
@@ -72,7 +73,7 @@ export const CartDrawer: React.FC = () => {
                   }}
                   className="px-6 py-3 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[11px] uppercase tracking-[0.2em] font-bold rounded-sm transition-colors"
                 >
-                  Explore Collection
+                  {t.exploreCollection}
                 </button>
               </div>
             ) : (
@@ -150,25 +151,25 @@ export const CartDrawer: React.FC = () => {
                 <Truck className="w-4 h-4 shrink-0" />
                 <span>
                   {shippingCost === 0
-                    ? 'You qualify for Free Express Shipping!'
-                    : `Add ${formatPrice(10000 - cartSubtotal)} more for Free Shipping.`}
+                    ? t.freeShippingQualify
+                    : `${t.freeShippingAddMore} (${formatPrice(10000 - cartSubtotal)})`}
                 </span>
               </div>
 
               {/* Price Breakdown */}
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between text-gray-600">
-                  <span>Subtotal</span>
+                  <span>{t.subtotal}</span>
                   <span className="font-serif">{formatPrice(cartSubtotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
-                  <span>Shipping</span>
+                  <span>{t.shippingFee}</span>
                   <span className="font-serif">
                     {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-[#1A1A1A] pt-2 border-t border-[#E5E1DA]">
-                  <span className="font-serif italic">Total</span>
+                  <span className="font-serif italic">{t.total}</span>
                   <span className="font-serif text-[#C5A059]">{formatPrice(totalAmount)}</span>
                 </div>
               </div>
@@ -178,7 +179,7 @@ export const CartDrawer: React.FC = () => {
                 onClick={handleCheckout}
                 className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold py-4 rounded-sm transition-colors flex items-center justify-center gap-2 shadow-lg"
               >
-                Proceed to Checkout <ArrowRight className="w-4 h-4" />
+                {t.proceedCheckout} <ArrowRight className="w-4 h-4" />
               </button>
 
               <div className="flex justify-between items-center text-[10px] text-gray-400">
@@ -186,11 +187,11 @@ export const CartDrawer: React.FC = () => {
                   onClick={clearCart}
                   className="hover:text-red-500 underline uppercase tracking-widest"
                 >
-                  Clear Bag
+                  {t.clearBag}
                 </button>
                 <div className="flex items-center gap-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059]" />
-                  <span>256-Bit Encrypted Payment</span>
+                  <span>{t.encryptedPayment}</span>
                 </div>
               </div>
             </div>

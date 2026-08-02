@@ -1,11 +1,30 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --bg-main: #FCFBFA;
+    --bg-card: #FFFFFF;
+    --bg-elevated: #F9F7F4;
+    --text-main: #1A1A1A;
+    --text-muted: #6B7280;
+    --border-color: #E5E1DA;
+  }
+
+  .dark {
+    --bg-main: #121212;
+    --bg-card: #1E1E1E;
+    --bg-elevated: #262626;
+    --text-main: #F3F0EC;
+    --text-muted: #9CA3AF;
+    --border-color: #2D2D2D;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    background-color: #FCFBFA;
-    color: #1A1A1A;
+    background-color: var(--bg-main);
+    color: var(--text-main);
     margin: 0;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
   
   h1, h2, h3, h4, .font-serif {
@@ -19,10 +38,10 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #FCFBFA;
+  background: var(--bg-main);
 }
 ::-webkit-scrollbar-thumb {
-  background: #E5E1DA;
+  background: var(--border-color);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -33,6 +52,52 @@
 .luxury-shadow {
   box-shadow: 0 10px 30px -10px rgba(26, 26, 26, 0.05);
 }
+.dark .luxury-shadow {
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
 .luxury-shadow-hover:hover {
   box-shadow: 0 20px 40px -15px rgba(26, 26, 26, 0.1);
 }
+
+/* Dark mode overrides for common container patterns */
+.dark nav,
+.dark header {
+  background-color: #1A1A1A !important;
+  border-color: #2D2D2D !important;
+  color: #F3F0EC !important;
+}
+
+.dark .bg-white {
+  background-color: #1E1E1E !important;
+  color: #F3F0EC;
+}
+
+.dark .bg-\[\#FCFBFA\],
+.dark .bg-\[\#F9F7F4\],
+.dark .bg-\[\#F4F1ED\] {
+  background-color: #141414 !important;
+  color: #F3F0EC;
+}
+
+.dark .border-\[\#E5E1DA\],
+.dark .border-gray-100,
+.dark .border-gray-200 {
+  border-color: #2D2D2D !important;
+}
+
+.dark .text-\[\#1A1A1A\] {
+  color: #F3F0EC !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #262626 !important;
+  color: #F3F0EC !important;
+  border-color: #3D3D3D !important;
+}
+
+.dark ::placeholder {
+  color: #888888 !important;
+}
+

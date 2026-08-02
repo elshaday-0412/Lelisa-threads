@@ -28,13 +28,20 @@ export const UserDashboard: React.FC = () => {
   // Online Bill Payment Modal State
   const [selectedBillOrder, setSelectedBillOrder] = useState<Order | null>(null);
   const [billPaymentMethod, setBillPaymentMethod] = useState<'TELEBIRR' | 'CBE_BIRR' | 'CHAPA' | 'STRIPE_CARD'>('TELEBIRR');
-  const [billPhone, setBillPhone] = useState('0911234567');
+  const [billPhone, setBillPhone] = useState(user?.phone || '');
   const [billOtp, setBillOtp] = useState('4829');
   const [billCardNum, setBillCardNum] = useState('4242 4242 4242 4242');
   const [billCardExp, setBillCardExp] = useState('08/28');
   const [billCardCvc, setBillCardCvc] = useState('456');
   const [billSubmitting, setBillSubmitting] = useState(false);
   const [billError, setBillError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.phone) {
+      setBillPhone(user.phone);
+      setEditPhoneVal(user.phone);
+    }
+  }, [user]);
 
   useEffect(() => {
     async function fetchAccountData() {
@@ -307,6 +314,7 @@ export const UserDashboard: React.FC = () => {
                           type="button"
                           onClick={() => {
                             setSelectedBillOrder(order);
+                            setBillPhone(user?.phone || order.customerPhone || '');
                             setBillError(null);
                           }}
                           className="px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold rounded-sm bg-[#C5A059] hover:bg-[#1A1A1A] text-white transition-colors flex items-center gap-1 shadow-sm"
@@ -616,7 +624,10 @@ export const UserDashboard: React.FC = () => {
                       <span className="font-bold text-[#1A1A1A]">Mobile Wallet OTP</span>
                       <button
                         type="button"
-                        onClick={() => { setBillPhone('0911234567'); setBillOtp('4829'); }}
+                        onClick={() => {
+                          setBillPhone(user?.phone || selectedBillOrder?.customerPhone || '0911234567');
+                          setBillOtp('4829');
+                        }}
                         className="text-[10px] text-[#C5A059] font-bold bg-[#C5A059]/10 px-2 py-0.5 rounded-sm"
                       >
                         ⚡ Fill Test (4829)

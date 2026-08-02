@@ -233,7 +233,7 @@ export const AdminDashboard: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-8 border-b border-[#E5E1DA] mb-8 gap-4">
           <div>
             <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-bold">
-              Habesha Threads Executive Portal
+              Lelisa Threads Executive Portal
             </span>
             <h1 className="text-3xl md:text-4xl font-serif font-light text-[#1A1A1A] mt-1">
               Inventory &amp; Customer Orders Hub

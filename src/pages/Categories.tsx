@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ProductService } from '../services/api.js';
+import { useApp } from '../context/AppContext.js';
 import { ArrowRight, Sparkles } from 'lucide-react';
 
 interface CategoryItem {
@@ -13,6 +14,7 @@ interface CategoryItem {
 }
 
 export const Categories: React.FC = () => {
+  const { t } = useApp();
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,13 +37,13 @@ export const Categories: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
-            Curated Shemma &amp; Adornment Categories
+            {t.brandName}
           </span>
           <h1 className="text-4xl md:text-6xl font-serif font-light text-[#1A1A1A] mt-2 mb-4">
-            The Habesha Heritage Collections
+            {t.heritageCollectionsHeader}
           </h1>
           <p className="text-xs md:text-sm text-gray-600 font-light leading-relaxed">
-            From ceremonial royal Zuria dresses and Lalibela suits to Axumite filigree crosses and Netela wraps, browse our 8 specialized collections.
+            {t.showingItems}
           </p>
         </div>
 
@@ -67,7 +69,7 @@ export const Categories: React.FC = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                     <div className="absolute top-3 right-3 bg-white/90 px-3 py-1 text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] rounded-sm">
-                      {cat.count} Pieces
+                      {cat.count} {t.pieces}
                     </div>
                   </div>
 
@@ -82,7 +84,7 @@ export const Categories: React.FC = () => {
                 </div>
 
                 <div className="px-6 pb-6 pt-2 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-[#1A1A1A] group-hover:text-[#C5A059] transition-colors">
-                  <span>Explore Collection</span>
+                  <span>{t.exploreCollection}</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>

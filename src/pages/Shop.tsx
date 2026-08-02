@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext.js';
 
 export const Shop: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { formatPrice } = useApp();
+  const { formatPrice, t } = useApp();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,14 +98,14 @@ export const Shop: React.FC = () => {
         {/* Header */}
         <div className="border-b border-[#E5E1DA] pb-8 mb-8">
           <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
-            Shemma &amp; Tilet Marketplace
+            {t.marketplaceTitle}
           </span>
           <h1 className="text-3xl md:text-5xl font-serif font-light text-[#1A1A1A] mt-2 mb-3">
-            {categoryParam !== 'All' ? categoryParam : 'The Complete Heritage Collection'}
+            {categoryParam !== 'All' ? categoryParam : t.heritageCollectionsHeader}
           </h1>
           <p className="text-xs md:text-sm text-gray-600 font-light">
-            {regionParam !== 'All' && `Region: ${regionParam} • `}
-            Showing {products.length} authentic handwoven Ethiopian garments and ceremonial accessories.
+            {regionParam !== 'All' && `${t.region}: ${regionParam} • `}
+            {t.showingItems}
           </p>
         </div>
 
@@ -118,7 +118,7 @@ export const Shop: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E5E1DA] hover:border-[#C5A059] rounded-sm text-xs uppercase tracking-widest font-bold text-[#1A1A1A] transition-colors"
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-[#C5A059]" />
-              Filters {isFilterOpen ? 'Active' : ''}
+              {t.filters} {isFilterOpen ? '•' : ''}
             </button>
 
             {/* Active Badges */}
@@ -132,7 +132,7 @@ export const Shop: React.FC = () => {
             )}
             {regionParam !== 'All' && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#1A1A1A] text-white text-[10px] uppercase tracking-widest font-semibold rounded-sm">
-                Region: {regionParam}
+                {t.region}: {regionParam}
                 <button onClick={() => updateParam('region', 'All')}>
                   <X className="w-3 h-3" />
                 </button>
@@ -140,7 +140,7 @@ export const Shop: React.FC = () => {
             )}
             {genderParam !== 'All' && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#1A1A1A] text-white text-[10px] uppercase tracking-widest font-semibold rounded-sm">
-                For: {genderParam}
+                {genderParam}
                 <button onClick={() => updateParam('gender', 'All')}>
                   <X className="w-3 h-3" />
                 </button>
@@ -148,7 +148,7 @@ export const Shop: React.FC = () => {
             )}
             {searchParam && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#C5A059] text-white text-[10px] uppercase tracking-widest font-semibold rounded-sm">
-                Query: &ldquo;{searchParam}&rdquo;
+                &ldquo;{searchParam}&rdquo;
                 <button onClick={() => updateParam('search', '')}>
                   <X className="w-3 h-3" />
                 </button>
@@ -165,7 +165,7 @@ export const Shop: React.FC = () => {
                 className="text-[11px] uppercase tracking-widest text-gray-500 hover:text-red-500 underline flex items-center gap-1 ml-2"
               >
                 <RotateCcw className="w-3 h-3" />
-                Reset All
+                {t.resetAll}
               </button>
             )}
           </div>
@@ -175,7 +175,7 @@ export const Shop: React.FC = () => {
             <form onSubmit={handleSearchSubmit} className="relative flex-1 sm:flex-initial">
               <input
                 type="text"
-                placeholder="Search tilet, name, region..."
+                placeholder={t.searchPlaceholder}
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 className="w-full sm:w-56 pl-3 pr-8 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
@@ -190,11 +190,11 @@ export const Shop: React.FC = () => {
               onChange={e => updateParam('sort', e.target.value)}
               className="px-3 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059] text-[#1A1A1A] font-medium"
             >
-              <option value="default">Sort by: Featured</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-              <option value="rating">Top Customer Ratings</option>
-              <option value="newest">Newest Arrivals</option>
+              <option value="default">{t.sortBy}: {t.sortFeatured}</option>
+              <option value="price-asc">{t.sortPriceLow}</option>
+              <option value="price-desc">{t.sortPriceHigh}</option>
+              <option value="rating">{t.sortRating}</option>
+              <option value="newest">{t.sortNewest}</option>
             </select>
 
             <div className="flex border border-[#E5E1DA] rounded-sm bg-white overflow-hidden">
@@ -227,7 +227,7 @@ export const Shop: React.FC = () => {
               {/* Category Filter */}
               <div>
                 <h4 className="text-[11px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-3">
-                  Category
+                  {t.category}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {categories.map(cat => (
@@ -249,7 +249,7 @@ export const Shop: React.FC = () => {
               {/* Region Filter */}
               <div>
                 <h4 className="text-[11px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-3">
-                  Regional Heritage
+                  {t.regionalHeritage}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {regions.map(reg => (
@@ -271,7 +271,7 @@ export const Shop: React.FC = () => {
               {/* Gender Filter */}
               <div>
                 <h4 className="text-[11px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-3">
-                  Audience / Gender
+                  {t.audienceGender}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {genders.map(g => (
@@ -302,15 +302,15 @@ export const Shop: React.FC = () => {
           </div>
         ) : products.length === 0 ? (
           <div className="text-center py-20 bg-white border border-[#E5E1DA] rounded-sm">
-            <h3 className="text-2xl font-serif text-[#1A1A1A] mb-2">No Heritage Garments Found</h3>
+            <h3 className="text-2xl font-serif text-[#1A1A1A] mb-2">{t.noGarmentsFound}</h3>
             <p className="text-xs text-gray-500 max-w-md mx-auto mb-6">
-              We couldn't find any items matching your current filters. Try resetting your search query or region filter.
+              {t.noGarmentsSubtitle}
             </p>
             <button
               onClick={resetAllFilters}
               className="px-6 py-3 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-widest font-bold rounded-sm transition-colors"
             >
-              Clear All Filters
+              {t.clearFilters}
             </button>
           </div>
         ) : viewMode === 'grid' ? (
@@ -360,7 +360,7 @@ export const Shop: React.FC = () => {
                     href={`/product/${prod.id}`}
                     className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-widest font-bold rounded-sm transition-colors"
                   >
-                    View Piece
+                    {t.viewDetails}
                   </a>
                 </div>
               </div>

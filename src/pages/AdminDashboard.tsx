@@ -469,7 +469,23 @@ export const AdminDashboard: React.FC = () => {
                         {formatPrice(order.totalAmount)}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-semibold text-gray-700">{order.paymentMethod}</span>
+                        <div className="font-semibold text-gray-800">{order.paymentMethod}</div>
+                        <div className="mt-0.5">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 text-[9px] uppercase tracking-wider font-bold rounded-sm border ${
+                              order.isPaid || order.paymentMethod !== 'CASH_ON_DELIVERY'
+                                ? 'bg-green-50 text-green-800 border-green-300'
+                                : 'bg-amber-50 text-amber-800 border-amber-300'
+                            }`}
+                          >
+                            {order.isPaid || order.paymentMethod !== 'CASH_ON_DELIVERY' ? '✓ PAID' : 'UNPAID COD'}
+                          </span>
+                        </div>
+                        {order.transactionRef && (
+                          <div className="text-[9px] font-mono text-gray-500 mt-0.5 truncate max-w-[110px]" title={order.transactionRef}>
+                            Ref: {order.transactionRef}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <select

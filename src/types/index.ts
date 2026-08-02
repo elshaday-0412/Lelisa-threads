@@ -81,13 +81,38 @@ export interface Order {
   city: string;
   region: string;
   status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-  paymentMethod: 'TELEBIRR' | 'CBE_BIRR' | 'CHAPA' | 'CASH_ON_DELIVERY';
+  paymentMethod: 'TELEBIRR' | 'CBE_BIRR' | 'CHAPA' | 'STRIPE_CARD' | 'DIASPORA_CARD' | 'CASH_ON_DELIVERY';
   isPaid: boolean;
+  transactionRef?: string;
+  paymentTimestamp?: string;
+  paymentGatewayResponse?: string;
+  cardLastFour?: string;
+  mobileWalletPhone?: string;
   subtotal: number;
   shippingCost: number;
   totalAmount: number;
   createdAt: string;
   items: OrderItem[];
+}
+
+export interface PaymentReceipt {
+  orderId: string;
+  orderNumber: string;
+  transactionRef: string;
+  amount: number;
+  currency: string;
+  paymentMethod: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  timestamp: string;
+  status: 'SUCCESS' | 'FAILED' | 'PENDING';
+  gatewayDetails: {
+    gateway: string;
+    authCode: string;
+    cardLastFour?: string;
+    mobileNumber?: string;
+  };
 }
 
 export interface UserAddress {

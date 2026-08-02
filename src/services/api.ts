@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Product, Order, User } from '../types/index.js';
+import { Product, Order, User, PaymentReceipt } from '../types/index.js';
 import { SAMPLE_PRODUCTS } from '../data/sampleProducts.js';
 
 const api = axios.create({
@@ -167,6 +167,30 @@ export const WishlistService = {
 
   async toggleWishlist(userId: string, productId: string): Promise<{ isWishlisted: boolean; wishlist: string[] }> {
     const response = await api.post('/wishlist/toggle', { userId, productId });
+    return response.data;
+  }
+};
+
+export const PaymentService = {
+  async processPayment(payload: {
+    amount: number;
+    currency?: string;
+    paymentMethod: string;
+    customerEmail?: string;
+    customerName?: string;
+    customerPhone?: string;
+    mobileNumber?: string;
+    otpPin?: string;
+    cardNumber?: string;
+    cardExp?: string;
+    cardCvc?: string;
+  }): Promise<{ success: boolean; message: string; receipt: PaymentReceipt }> {
+    const response = await api.post('/payments/process', payload);
+    return response.data;
+  },
+
+  async getReceipt(transactionRef: string): Promise<PaymentReceipt> {
+    const response = await api.get(`/payments/receipt/${transactionRef}`);
     return response.data;
   }
 };

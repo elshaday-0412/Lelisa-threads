@@ -1,0 +1,166 @@
+// Habesha Threads - Ethiopian Traditional Clothing Marketplace
+// Complete Prisma ORM Schema for PostgreSQL
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Gender {
+  WOMEN
+  MEN
+  KIDS
+  UNISEX
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  TELEBIRR
+  CBE_BIRR
+  CHAPA
+  CASH_ON_DELIVERY
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  role         Role       @default(USER)
+  avatar       String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  orders       Order[]
+  reviews      Review[]
+  wishlists    Wishlist[]
+  addresses    Address[]
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  street     String
+  city       String
+  region     String
+  country    String   @default("Ethiopia")
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+}
+
+model Product {
+  id            String      @id @default(uuid())
+  name          String
+  slug          String      @unique
+  description   String
+  price         Float
+  originalPrice Float?
+  categoryId    String
+  category      Category    @relation(fields: [categoryId], references: [id])
+  region        String      // Amhara, Tigray, Oromo, Gurage, Harari, Sidama, Wolayta, Afar, General
+  material      String      // e.g., Handwoven Cotton (Menet), Silk Tilet, Gold Thread
+  gender        Gender      @default(WOMEN)
+  images        String[]
+  sizes         String[]    // e.g., ["XS", "S", "M", "L", "XL", "Custom"]
+  colors        String[]    // e.g., ["White/Gold", "White/Green/Red", "Royal Blue"]
+  stock         Int         @default(10)
+  isFeatured    Boolean     @default(false)
+  isBestSeller  Boolean     @default(false)
+  isNewArrival  Boolean     @default(false)
+  rating        Float       @default(5.0)
+  reviewCount   Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  orderItems    OrderItem[]
+  reviews       Review[]
+  wishlistedBy  Wishlist[]
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  userId          String?       // Can be null for guest checkouts
+  user            User?         @relation(fields: [userId], references: [id])
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  shippingAddress String
+  city            String
+  region          String
+  status          OrderStatus   @default(PENDING)
+  paymentMethod   PaymentMethod
+  isPaid          Boolean       @default(true)
+  subtotal        Float
+  shippingCost    Float         @default(0.0)
+  totalAmount     Float
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items           OrderItem[]
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  name      String
+  price     Float
+  quantity  Int      @default(1)
+  size      String
+  color     String
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int      @default(5) // 1 to 5
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}

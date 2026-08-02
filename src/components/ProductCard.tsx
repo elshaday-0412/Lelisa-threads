@@ -29,7 +29,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <div className="absolute inset-0 bg-[#E5DBCF] mix-blend-multiply opacity-10 group-hover:opacity-0 transition-opacity pointer-events-none"></div>
 
         {/* Badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+          {product.stock <= 0 ? (
+            <span className="bg-red-600 text-white text-[9px] uppercase tracking-widest px-2 py-0.5 font-bold rounded-sm shadow-sm">
+              Out of Stock
+            </span>
+          ) : product.stock <= 5 ? (
+            <span className="bg-amber-600 text-white text-[9px] uppercase tracking-widest px-2 py-0.5 font-bold rounded-sm shadow-sm">
+              Only {product.stock} Left
+            </span>
+          ) : null}
           {product.isFeatured && (
             <span className="bg-[#1A1A1A] text-white text-[9px] uppercase tracking-widest px-2 py-0.5 font-semibold rounded-sm">
               Featured
@@ -75,10 +84,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              addToCart(product, product.sizes[0], product.colors[0], 1);
+              if (product.stock > 0) {
+                addToCart(product, product.sizes[0], product.colors[0], 1);
+              }
             }}
-            className="w-10 bg-[#1A1A1A] hover:bg-[#C5A059] text-white flex items-center justify-center rounded-sm shadow-md transition-colors"
-            title="Quick Add to Bag"
+            disabled={product.stock <= 0}
+            className={`w-10 flex items-center justify-center rounded-sm shadow-md transition-colors ${
+              product.stock <= 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-[#1A1A1A] hover:bg-[#C5A059] text-white'
+            }`}
+            title={product.stock <= 0 ? 'Out of Stock' : 'Quick Add to Bag'}
           >
             <ShoppingBag className="w-4 h-4" />
           </button>

@@ -1,0 +1,46 @@
+{
+  "entities": {
+    "users": {
+      "title": "Users",
+      "description": "Registered customer and admin profiles",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "name"]
+    },
+    "products": {
+      "title": "Products & Inventory",
+      "description": "Habesha clothing catalog and inventory stock levels",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "price": { "type": "number" },
+        "stockQuantity": { "type": "number" },
+        "inStock": { "type": "boolean" },
+        "category": { "type": "string" }
+      },
+      "required": ["title", "price", "stockQuantity", "category"]
+    },
+    "orders": {
+      "title": "Orders",
+      "description": "Customer purchases and payment receipts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "userId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["orderNumber", "customerName", "totalAmount"]
+    }
+  }
+}

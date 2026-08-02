@@ -284,6 +284,29 @@ export const ProductDetails: React.FC = () => {
                 </div>
               </div>
 
+              {/* Stock Status Indicator */}
+              <div className="mb-6">
+                {product.stock <= 0 ? (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+                    <span>Currently Out of Stock — Master weavers preparing next edition.</span>
+                  </div>
+                ) : product.stock <= 5 ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold rounded-sm flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping"></span>
+                      <span>Limited Stock: Only {product.stock} units remaining!</span>
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-amber-700">Fast Dispatch</span>
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-green-50 border border-green-200 text-green-800 text-xs font-medium rounded-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-600"></span>
+                    <span>In Stock ({product.stock} units ready in Addis Ababa vault)</span>
+                  </div>
+                )}
+              </div>
+
               {/* Add to Cart / Buy Now */}
               <div className="space-y-3">
                 <div className="flex gap-3">
@@ -291,14 +314,16 @@ export const ProductDetails: React.FC = () => {
                   <div className="flex items-center border border-[#E5E1DA] rounded-sm bg-white">
                     <button
                       onClick={() => setQty(Math.max(1, qty - 1))}
-                      className="px-3.5 py-3 text-xs font-bold hover:text-[#C5A059]"
+                      disabled={product.stock <= 0}
+                      className="px-3.5 py-3 text-xs font-bold hover:text-[#C5A059] disabled:opacity-40"
                     >
                       -
                     </button>
-                    <span className="w-8 text-center text-xs font-semibold">{qty}</span>
+                    <span className="w-8 text-center text-xs font-semibold">{product.stock <= 0 ? 0 : qty}</span>
                     <button
-                      onClick={() => setQty(qty + 1)}
-                      className="px-3.5 py-3 text-xs font-bold hover:text-[#C5A059]"
+                      onClick={() => setQty(Math.min(product.stock, qty + 1))}
+                      disabled={product.stock <= 0 || qty >= product.stock}
+                      className="px-3.5 py-3 text-xs font-bold hover:text-[#C5A059] disabled:opacity-40"
                     >
                       +
                     </button>
@@ -306,18 +331,28 @@ export const ProductDetails: React.FC = () => {
 
                   <button
                     onClick={handleAddToCart}
-                    className="flex-1 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2"
+                    disabled={product.stock <= 0}
+                    className={`flex-1 text-xs uppercase tracking-[0.2em] font-bold py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2 ${
+                      product.stock <= 0
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        : 'bg-[#1A1A1A] hover:bg-[#C5A059] text-white'
+                    }`}
                   >
                     <ShoppingBag className="w-4 h-4" />
-                    Add to Bag
+                    {product.stock <= 0 ? 'Out of Stock' : 'Add to Bag'}
                   </button>
                 </div>
 
                 <button
                   onClick={handleBuyNow}
-                  className="w-full bg-[#C5A059] hover:bg-[#1A1A1A] text-white text-xs uppercase tracking-[0.2em] font-bold py-4 rounded-sm transition-colors shadow-md"
+                  disabled={product.stock <= 0}
+                  className={`w-full text-xs uppercase tracking-[0.2em] font-bold py-4 rounded-sm transition-colors shadow-md ${
+                    product.stock <= 0
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+                      : 'bg-[#C5A059] hover:bg-[#1A1A1A] text-white'
+                  }`}
                 >
-                  Buy Now — Express Celebration Shipping
+                  {product.stock <= 0 ? 'Item Currently Unavailable' : 'Buy Now — Express Celebration Shipping'}
                 </button>
               </div>
 

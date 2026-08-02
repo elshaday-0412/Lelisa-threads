@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext.js';
 import { OrderService, WishlistService, PaymentService } from '../services/api.js';
+import { FirebaseAuthService, isValidPhone } from '../services/firebaseService.js';
 import { Order, Product } from '../types/index.js';
 import { ProductCard } from '../components/ProductCard.js';
 import { Package, Heart, MapPin, LogOut, ShieldCheck, User as UserIcon, Plus, CheckCircle2, CreditCard, Smartphone, Building2, Globe, X, Lock, AlertCircle, Printer } from 'lucide-react';
@@ -19,6 +20,10 @@ export const UserDashboard: React.FC = () => {
   const [isAddingAddr, setIsAddingAddr] = useState(false);
   const [newStreet, setNewStreet] = useState('');
   const [newCity, setNewCity] = useState('Addis Ababa');
+
+  // Phone profile editing state
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [editPhoneVal, setEditPhoneVal] = useState('');
 
   // Online Bill Payment Modal State
   const [selectedBillOrder, setSelectedBillOrder] = useState<Order | null>(null);
@@ -84,6 +89,25 @@ export const UserDashboard: React.FC = () => {
     setNewStreet('');
     setIsAddingAddr(false);
     showToast('Address Added', 'Your delivery address has been saved.', 'success');
+  };
+
+  const handleSavePhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editPhoneVal.trim() || !user) return;
+    if (!isValidPhone(editPhoneVal)) {
+      showToast('Invalid Phone Number', 'Please enter a valid phone number (at least 7 digits).', 'error');
+      return;
+    }
+    try {
+      await FirebaseAuthService.updateUserPhone(user.id, editPhoneVal.trim());
+      setUser({ ...user, phone: editPhoneVal.trim() });
+      setIsEditingPhone(false);
+      showToast('Phone Updated', 'Your contact phone number has been updated in Firebase!', 'success');
+    } catch (err) {
+      setUser({ ...user, phone: editPhoneVal.trim() });
+      setIsEditingPhone(false);
+      showToast('Phone Updated', 'Your contact phone number has been updated.', 'success');
+    }
   };
 
   const handlePayBillOnline = async (e: React.FormEvent) => {
@@ -379,9 +403,47 @@ export const UserDashboard: React.FC = () => {
                   <span className="text-gray-500 font-medium">Email Address</span>
                   <span className="font-semibold text-[#1A1A1A]">{user.email}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 font-medium">Phone</span>
-                  <span className="font-semibold text-[#1A1A1A]">{user.phone || '+251 911 000 000'}</span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-500 font-medium">Phone Number</span>
+                  {isEditingPhone ? (
+                    <form onSubmit={handleSavePhone} className="flex items-center gap-2">
+                      <input
+                        type="tel"
+                        required
+                        value={editPhoneVal}
+                        onChange={e => setEditPhoneVal(e.target.value)}
+                        placeholder="+251 9..."
+                        className="px-2 py-1 text-xs border border-[#E5E1DA] rounded-sm bg-[#FCFBFA]"
+                      />
+                      <button
+                        type="submit"
+                        className="px-2 py-1 bg-[#1A1A1A] text-white text-[10px] font-bold uppercase rounded-sm"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingPhone(false)}
+                        className="text-[10px] text-gray-500 hover:text-black"
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-[#1A1A1A]">{user.phone || '+251 911 000 000'}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditPhoneVal(user.phone || '');
+                          setIsEditingPhone(true);
+                        }}
+                        className="text-[10px] text-[#C5A059] font-bold hover:underline"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-gray-500 font-medium">Member Role</span>

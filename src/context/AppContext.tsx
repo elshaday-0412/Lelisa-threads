@@ -33,6 +33,8 @@ interface AppContextType {
   // Auth
   user: User | null;
   setUser: (user: User | null) => void;
+  pendingPhoneUser: User | null;
+  setPendingPhoneUser: (user: User | null) => void;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
   loginAsDemoAdmin: () => void;
@@ -69,28 +71,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // QuickView state
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
-  // Auth state
+  // Auth state - Default to null to allow fresh registration
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('ht_user');
-    return saved
-      ? JSON.parse(saved)
-      : {
-          id: 'user-customer',
-          email: 'user@habeshathreads.com',
-          fullName: 'Dawit Abebe',
-          phone: '+251 912 876 543',
-          role: 'USER',
-          addresses: [
-            {
-              id: 'addr-2',
-              street: 'Kazanchis, Near ECA',
-              city: 'Addis Ababa',
-              region: 'Addis Ababa',
-              isDefault: true
-            }
-          ]
-        };
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved);
+      // Remove legacy demo customer account from persistence
+      if (parsed.id === 'user-customer') {
+        localStorage.removeItem('ht_user');
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
   });
+  const [pendingPhoneUser, setPendingPhoneUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Currency display toggle (ETB vs USD luxury reference)
@@ -114,6 +111,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       localStorage.removeItem('ht_user');
     }
   }, [user]);
+
+  // Seed / Sync Firebase Firestore DB on initial mount
+  useEffect(() => {
+    import('../services/firebaseService.js').then(({ FirestoreInventoryService, FirebaseAuthService, isValidPhone }) => {
+      FirestoreInventoryService.seedProductsIfEmpty().catch(err => {
+        console.warn('Firestore initialization notice:', err);
+      });
+
+      const unsubscribe = FirebaseAuthService.onAuthChange(authUser => {
+        if (authUser) {
+          if (isValidPhone(authUser.phone)) {
+            setUser(authUser);
+            setPendingPhoneUser(null);
+          } else {
+            // User authenticated in Firebase but lacks valid phone number!
+            // Do NOT log into AppContext automatically. Store in pendingPhoneUser and open AuthModal.
+            setUser(null);
+            setPendingPhoneUser(authUser);
+            setIsAuthModalOpen(true);
+          }
+        } else {
+          setUser(null);
+          setPendingPhoneUser(null);
+        }
+      });
+      return () => unsubscribe();
+    }).catch(e => {
+      console.warn('Firebase Service load notice:', e);
+    });
+  }, []);
 
   const showToast = (title: string, message = '', type: 'success' | 'info' | 'error' = 'success') => {
     const id = `toast_${Date.now()}`;
@@ -240,7 +267,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const logout = () => {
     setUser(null);
-    showToast('Logged Out', 'You have been signed out of your account', 'info');
+    setPendingPhoneUser(null);
+    localStorage.removeItem('ht_user');
+    setIsAuthModalOpen(false);
+    import('../services/firebaseService.js').then(({ FirebaseAuthService }) => {
+      FirebaseAuthService.logout().catch(err => {
+        console.warn('Firebase logout notice:', err);
+      });
+    });
+    showToast('Signed Out', 'You have been logged out of your account.', 'info');
   };
 
   // Convert ETB to USD luxury format if USD toggle is active (1 USD ≈ 120 ETB)
@@ -271,6 +306,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setQuickViewProduct,
         user,
         setUser,
+        pendingPhoneUser,
+        setPendingPhoneUser,
         isAuthModalOpen,
         setIsAuthModalOpen,
         loginAsDemoAdmin,

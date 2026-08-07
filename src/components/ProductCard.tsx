@@ -2,14 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Product } from '../types/index.js';
 import { useApp } from '../context/AppContext.js';
-import { Heart, Eye, Star, ShoppingBag } from 'lucide-react';
+import { Heart, Eye, ShoppingBag } from 'lucide-react';
+import { RatingStars } from './RatingStars.js';
 
 interface ProductCardProps {
   product: Product;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
-  const { toggleWishlist, isWishlisted, setQuickViewProduct, addToCart, formatPrice, t } = useApp();
+  const { toggleWishlist, isWishlisted, setQuickViewProduct, addToCart, formatPrice, requireAuth, t } = useApp();
   const wishlisted = isWishlisted(product.id);
 
   return (
@@ -55,7 +56,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            toggleWishlist(product.id);
+            requireAuth(() => toggleWishlist(product.id), 'Please log in or create an account to save items to your wishlist.');
           }}
           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-sm transition-all hover:scale-110"
           aria-label="Add to Wishlist"
@@ -85,7 +86,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             onClick={(e) => {
               e.stopPropagation();
               if (product.stock > 0) {
-                addToCart(product, product.sizes[0], product.colors[0], 1);
+                requireAuth(() => addToCart(product, product.sizes[0], product.colors[0], 1), 'Please log in or create an account to add items to your shopping bag.');
               }
             }}
             disabled={product.stock <= 0}
@@ -112,22 +113,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               {product.name}
             </h3>
           </Link>
-          <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-            <Star className="w-3.5 h-3.5 fill-[#C5A059] text-[#C5A059]" />
-            <span className="font-semibold text-[#1A1A1A]">{product.rating.toFixed(1)}</span>
-            <span className="text-[10px] text-gray-400">({product.reviewCount})</span>
-          </div>
+          <RatingStars
+            rating={product.rating}
+            reviewCount={product.reviewCount}
+            size="sm"
+            className="mt-1"
+          />
         </div>
 
         <div className="text-right shrink-0">
           <span className="text-sm font-serif font-semibold text-[#1A1A1A]">
             {formatPrice(product.price)}
           </span>
-          {product.originalPrice && (
-            <p className="text-[11px] font-serif text-gray-400 line-through">
-              {formatPrice(product.originalPrice)}
-            </p>
-          )}
         </div>
       </div>
     </div>

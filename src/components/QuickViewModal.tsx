@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext.js';
-import { X, Star, Heart, ShoppingBag, ArrowRight, ShieldCheck } from 'lucide-react';
+import { X, Heart, ShoppingBag, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { RatingStars } from './RatingStars.js';
 
 export const QuickViewModal: React.FC = () => {
-  const { quickViewProduct, setQuickViewProduct, addToCart, toggleWishlist, isWishlisted, formatPrice } = useApp();
+  const { quickViewProduct, setQuickViewProduct, addToCart, toggleWishlist, isWishlisted, formatPrice, requireAuth } = useApp();
   const navigate = useNavigate();
 
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -18,26 +19,30 @@ export const QuickViewModal: React.FC = () => {
   const wishlisted = isWishlisted(quickViewProduct.id);
 
   const handleAddToCart = () => {
-    addToCart(quickViewProduct, currentSize, currentColor, qty);
-    setQuickViewProduct(null);
+    requireAuth(() => {
+      addToCart(quickViewProduct, currentSize, currentColor, qty);
+      setQuickViewProduct(null);
+    }, 'Please log in or create an account to add items to your shopping bag.');
   };
 
   const handleBuyNow = () => {
-    addToCart(quickViewProduct, currentSize, currentColor, qty);
-    setQuickViewProduct(null);
-    navigate('/checkout');
+    requireAuth(() => {
+      addToCart(quickViewProduct, currentSize, currentColor, qty);
+      setQuickViewProduct(null);
+      navigate('/checkout');
+    }, 'Please log in or create an account to proceed to checkout.');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
       <div
-        className="bg-white w-full max-w-4xl rounded-sm shadow-2xl overflow-hidden border border-[#E5E1DA] relative animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-[#181818] text-[#1A1A1A] dark:text-white w-full max-w-4xl rounded-sm shadow-2xl border border-[#E5E1DA] dark:border-[#2D2D2D] relative max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Close button */}
         <button
           onClick={() => setQuickViewProduct(null)}
-          className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-white/90 hover:bg-[#1A1A1A] hover:text-white text-[#1A1A1A] flex items-center justify-center transition-colors"
+          className="absolute top-3 right-3 z-10 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/90 dark:bg-[#222] hover:bg-[#1A1A1A] hover:text-white text-[#1A1A1A] dark:text-white flex items-center justify-center transition-colors shadow-md"
           aria-label="Close modal"
         >
           <X className="w-5 h-5" />
@@ -45,61 +50,56 @@ export const QuickViewModal: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Product Image */}
-          <div className="h-80 md:h-[480px] bg-[#F4F1ED] relative overflow-hidden">
+          <div className="h-64 sm:h-80 md:h-auto min-h-[260px] bg-[#F4F1ED] dark:bg-[#252525] relative overflow-hidden">
             <img
               src={quickViewProduct.images[0]}
               alt={quickViewProduct.name}
               className="w-full h-full object-cover"
             />
-            <div className="absolute top-4 left-4 bg-white/90 px-3 py-1 text-[10px] uppercase tracking-widest font-bold text-[#C5A059] rounded-sm">
+            <div className="absolute top-3 left-3 bg-white/90 dark:bg-[#181818]/90 px-3 py-1 text-[10px] uppercase tracking-widest font-bold text-[#C5A059] rounded-sm shadow-xs">
               {quickViewProduct.region} Heritage
             </div>
           </div>
 
           {/* Product Info */}
-          <div className="p-6 md:p-8 flex flex-col justify-between max-h-[480px] overflow-y-auto">
+          <div className="p-5 sm:p-6 md:p-8 flex flex-col justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-widest text-[#C5A059] font-bold">
                 {quickViewProduct.category}
               </p>
-              <h2 className="text-2xl font-serif text-[#1A1A1A] font-light mt-1 mb-2">
+              <h2 className="text-2xl font-serif text-[#1A1A1A] dark:text-white font-light mt-1 mb-2">
                 {quickViewProduct.name}
               </h2>
 
               <div className="flex items-center gap-3 mb-4">
-                <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 fill-[#C5A059] text-[#C5A059]" />
-                  <span className="text-sm font-semibold">{quickViewProduct.rating.toFixed(1)}</span>
-                  <span className="text-xs text-gray-400">({quickViewProduct.reviewCount} reviews)</span>
-                </div>
-                <span className="text-gray-300">•</span>
+                <RatingStars
+                  rating={quickViewProduct.rating}
+                  reviewCount={quickViewProduct.reviewCount}
+                  size="md"
+                />
+                <span className="text-gray-300 dark:text-gray-600">•</span>
                 <span className="text-xs text-[#C5A059] font-medium">In Stock ({quickViewProduct.stock})</span>
               </div>
 
               <div className="flex items-baseline gap-3 mb-4">
-                <span className="text-2xl font-serif font-bold text-[#1A1A1A]">
+                <span className="text-2xl font-serif font-bold text-[#1A1A1A] dark:text-white">
                   {formatPrice(quickViewProduct.price)}
                 </span>
-                {quickViewProduct.originalPrice && (
-                  <span className="text-base font-serif text-gray-400 line-through">
-                    {formatPrice(quickViewProduct.originalPrice)}
-                  </span>
-                )}
               </div>
 
-              <p className="text-xs text-gray-600 font-light leading-relaxed mb-6">
+              <p className="text-xs text-gray-600 dark:text-gray-300 font-light leading-relaxed mb-6">
                 {quickViewProduct.description}
               </p>
 
               {/* Material Badge */}
-              <div className="mb-5 bg-[#FCFBFA] p-3 border border-[#E5E1DA] rounded-sm">
-                <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Weave & Material</p>
-                <p className="text-xs text-[#1A1A1A] font-medium mt-0.5">{quickViewProduct.material}</p>
+              <div className="mb-5 bg-[#FCFBFA] dark:bg-[#202020] p-3 border border-[#E5E1DA] dark:border-[#333] rounded-sm">
+                <p className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-semibold">Weave & Material</p>
+                <p className="text-xs text-[#1A1A1A] dark:text-white font-medium mt-0.5">{quickViewProduct.material}</p>
               </div>
 
               {/* Sizes */}
               <div className="mb-5">
-                <label className="block text-[11px] uppercase tracking-widest text-[#1A1A1A] font-bold mb-2">
+                <label className="block text-[11px] uppercase tracking-widest text-[#1A1A1A] dark:text-white font-bold mb-2">
                   Select Size: <span className="text-[#C5A059] font-normal">{currentSize}</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -109,8 +109,8 @@ export const QuickViewModal: React.FC = () => {
                       onClick={() => setSelectedSize(size)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-sm border transition-all ${
                         currentSize === size
-                          ? 'border-[#1A1A1A] bg-[#1A1A1A] text-white'
-                          : 'border-[#E5E1DA] bg-white text-[#1A1A1A] hover:border-[#C5A059]'
+                          ? 'border-[#1A1A1A] dark:border-white bg-[#1A1A1A] dark:bg-white text-white dark:text-black'
+                          : 'border-[#E5E1DA] dark:border-[#333] bg-white dark:bg-[#222] text-[#1A1A1A] dark:text-white hover:border-[#C5A059]'
                       }`}
                     >
                       {size}
@@ -121,7 +121,7 @@ export const QuickViewModal: React.FC = () => {
 
               {/* Colors */}
               <div className="mb-6">
-                <label className="block text-[11px] uppercase tracking-widest text-[#1A1A1A] font-bold mb-2">
+                <label className="block text-[11px] uppercase tracking-widest text-[#1A1A1A] dark:text-white font-bold mb-2">
                   Tilet & Colorway: <span className="text-[#C5A059] font-normal">{currentColor}</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -132,7 +132,7 @@ export const QuickViewModal: React.FC = () => {
                       className={`px-3 py-1.5 text-xs font-medium rounded-sm border transition-all ${
                         currentColor === color
                           ? 'border-[#C5A059] bg-[#C5A059] text-white'
-                          : 'border-[#E5E1DA] bg-white text-[#1A1A1A] hover:border-[#C5A059]'
+                          : 'border-[#E5E1DA] dark:border-[#333] bg-white dark:bg-[#222] text-[#1A1A1A] dark:text-white hover:border-[#C5A059]'
                       }`}
                     >
                       {color}
@@ -143,20 +143,20 @@ export const QuickViewModal: React.FC = () => {
             </div>
 
             {/* Actions */}
-            <div className="space-y-3 pt-4 border-t border-[#E5E1DA]">
+            <div className="space-y-3 pt-4 border-t border-[#E5E1DA] dark:border-[#2D2D2D]">
               <div className="flex gap-3">
                 {/* Quantity */}
-                <div className="flex items-center border border-[#E5E1DA] rounded-sm bg-white">
+                <div className="flex items-center border border-[#E5E1DA] dark:border-[#333] rounded-sm bg-white dark:bg-[#222]">
                   <button
                     onClick={() => setQty(Math.max(1, qty - 1))}
-                    className="px-3 py-2.5 text-xs font-bold hover:text-[#C5A059]"
+                    className="px-3 py-2.5 text-xs font-bold hover:text-[#C5A059] dark:text-gray-300"
                   >
                     -
                   </button>
-                  <span className="w-8 text-center text-xs font-semibold">{qty}</span>
+                  <span className="w-8 text-center text-xs font-semibold dark:text-white">{qty}</span>
                   <button
                     onClick={() => setQty(qty + 1)}
-                    className="px-3 py-2.5 text-xs font-bold hover:text-[#C5A059]"
+                    className="px-3 py-2.5 text-xs font-bold hover:text-[#C5A059] dark:text-gray-300"
                   >
                     +
                   </button>
@@ -173,7 +173,7 @@ export const QuickViewModal: React.FC = () => {
 
                 {/* Favorite */}
                 <button
-                  onClick={() => toggleWishlist(quickViewProduct.id)}
+                  onClick={() => requireAuth(() => toggleWishlist(quickViewProduct.id), 'Please log in or create an account to save items to your wishlist.')}
                   className={`w-12 border border-[#E5E1DA] hover:border-[#C5A059] flex items-center justify-center rounded-sm transition-colors ${
                     wishlisted ? 'bg-[#C5A059]/10 border-[#C5A059]' : ''
                   }`}

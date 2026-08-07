@@ -14,7 +14,10 @@ export const AuthModal: React.FC = () => {
     pendingPhoneUser,
     setPendingPhoneUser,
     logout,
-    showToast
+    showToast,
+    authModalReason,
+    setAuthModalReason,
+    executePendingAction
   } = useApp();
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,11 +71,7 @@ export const AuthModal: React.FC = () => {
         setPendingPhoneUser(null);
         showToast('Account Created', `Welcome to Habesha Threads, ${fullName}!`, 'success');
         setIsAuthModalOpen(false);
-        if (newUser.role === 'ADMIN') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+        executePendingAction();
       } else {
         const loggedUser = await FirebaseAuthService.loginWithEmail(email, password);
         if (!isValidPhone(loggedUser.phone)) {
@@ -86,11 +85,7 @@ export const AuthModal: React.FC = () => {
         setPendingPhoneUser(null);
         showToast('Signed In', `Welcome back, ${loggedUser.fullName}!`, 'success');
         setIsAuthModalOpen(false);
-        if (loggedUser.role === 'ADMIN') {
-          navigate('/admin');
-        } else {
-          navigate('/dashboard');
-        }
+        executePendingAction();
       }
     } catch (err: any) {
       console.warn('Firebase Auth notice:', err);
@@ -106,8 +101,11 @@ export const AuthModal: React.FC = () => {
           fullName: fullName || 'Valued User',
           phone: phone.trim(),
           role: email.toLowerCase().includes('admin') ? 'ADMIN' as const : 'USER' as const,
+          authProvider: 'email_password' as const,
+          signupMethod: 'EMAIL_FORM',
           addresses: []
         };
+        await FirebaseAuthService.saveUserProfile(newUser, 'email_password').catch(() => {});
         setUser(newUser);
         showToast('Account Created', `Welcome, ${newUser.fullName}!`, 'success');
         setIsAuthModalOpen(false);
@@ -142,7 +140,7 @@ export const AuthModal: React.FC = () => {
       setPendingPhoneUser(null);
       showToast('Firebase Auth', `Signed in with Google as ${googleUser.fullName}`, 'success');
       setIsAuthModalOpen(false);
-      navigate(googleUser.role === 'ADMIN' ? '/admin' : '/dashboard');
+      executePendingAction();
     } catch (err: any) {
       showToast('Google Sign-In Error', err.message || 'Popup closed or blocked', 'error');
     } finally {
@@ -168,7 +166,7 @@ export const AuthModal: React.FC = () => {
       setPendingPhoneUser(null);
       showToast('Phone Number Saved', 'Your contact phone number is saved and you are now signed in!', 'success');
       setIsAuthModalOpen(false);
-      navigate(updatedUser.role === 'ADMIN' ? '/admin' : '/dashboard');
+      executePendingAction();
     } catch (err) {
       console.warn('Phone update notice:', err);
       const updatedUser = { ...targetUser, phone: phoneFollowUpInput.trim() };
@@ -176,6 +174,7 @@ export const AuthModal: React.FC = () => {
       setPhoneFollowUpUser(null);
       setPendingPhoneUser(null);
       setIsAuthModalOpen(false);
+      executePendingAction();
     } finally {
       setIsLoading(false);
     }
@@ -195,48 +194,48 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
       <div
-        className="bg-white w-full max-w-md rounded-sm shadow-2xl overflow-hidden border border-[#E5E1DA] relative animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-[#181818] text-[#1A1A1A] dark:text-white w-full max-w-md rounded-sm shadow-2xl border border-gray-200 dark:border-[#2D2D2D] relative max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         <button
           onClick={handleModalClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-black transition-colors"
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-gray-100 dark:bg-[#222] hover:bg-gray-200 dark:hover:bg-[#333] flex items-center justify-center text-gray-700 dark:text-gray-300 hover:text-black dark:hover:text-white transition-colors"
           aria-label="Close auth modal"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="p-8">
+        <div className="p-5 sm:p-8">
           {activePhoneUser ? (
             <div>
               <div className="text-center mb-6">
                 <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-[#C5A059] block mb-1">
                   Profile Follow-Up Required
                 </span>
-                <h2 className="text-xl font-serif text-[#1A1A1A]">
+                <h2 className="text-xl font-serif text-gray-900 dark:text-white font-bold">
                   Enter Your Contact Phone
                 </h2>
-                <p className="text-xs text-gray-500 font-light mt-1">
+                <p className="text-xs text-gray-600 dark:text-gray-300 font-medium mt-1">
                   Welcome <strong>{activePhoneUser.fullName}</strong>! Before completing sign in, please provide a valid phone number for Telebirr receipts & delivery updates.
                 </p>
               </div>
 
               <form onSubmit={handleSavePhoneFollowUp} className="space-y-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5">
                     Phone Number <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                    <Phone className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute left-3 top-3" />
                     <input
                       type="tel"
                       required
                       placeholder="+251 9... or 09..."
                       value={phoneFollowUpInput}
                       onChange={e => setPhoneFollowUpInput(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                      className="w-full pl-10 pr-3 py-2.5 text-xs bg-white dark:bg-[#242424] text-gray-900 dark:text-white border border-gray-300 dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] placeholder:text-gray-400 dark:placeholder:text-gray-500 font-medium"
                     />
                   </div>
                 </div>
@@ -244,7 +243,7 @@ export const AuthModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2 mt-2 shadow-md"
+                  className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] dark:bg-[#C5A059] dark:hover:bg-[#a88647] text-white text-xs uppercase tracking-[0.2em] font-bold py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2 mt-2 shadow-md"
                 >
                   {isLoading ? 'Saving to Firebase...' : 'Save Phone Number & Sign In'} <ArrowRight className="w-4 h-4" />
                 </button>
@@ -252,7 +251,7 @@ export const AuthModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleCancelPhoneFollowUp}
-                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold py-2.5 rounded-sm transition-colors flex items-center justify-center gap-2 mt-2"
+                  className="w-full bg-gray-100 dark:bg-[#2A2A2A] hover:bg-gray-200 dark:hover:bg-[#333] text-gray-800 dark:text-gray-200 text-xs font-semibold py-2.5 rounded-sm transition-colors flex items-center justify-center gap-2 mt-2"
                 >
                   <LogOut className="w-3.5 h-3.5" /> Cancel & Sign Out
                 </button>
@@ -261,13 +260,43 @@ export const AuthModal: React.FC = () => {
           ) : (
             <>
               <div className="text-center mb-6">
-                <span className="text-xl font-serif italic tracking-tight text-[#C5A059] font-bold block mb-1">
-                  Habesha Threads
+                <span className="text-2xl font-serif italic tracking-tight text-[#C5A059] font-bold block mb-1">
+                  Lelisa Threads
                 </span>
-                <h2 className="text-xl font-serif text-[#1A1A1A]">
-                  {isRegistering ? 'Create Your Account' : 'Welcome Back'}
-                </h2>
-                <p className="text-xs text-gray-500 font-light mt-1">
+
+                {authModalReason && (
+                  <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/50 text-amber-900 dark:text-amber-200 text-xs font-semibold rounded-sm animate-in fade-in">
+                    🔒 {authModalReason}
+                  </div>
+                )}
+
+                {/* Tab switcher */}
+                <div className="flex border-b border-gray-200 dark:border-[#333] mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsRegistering(false)}
+                    className={`flex-1 py-3 text-xs font-extrabold uppercase tracking-wider transition-colors border-b-2 ${
+                      !isRegistering
+                        ? 'border-[#C5A059] text-gray-900 dark:text-white'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Log In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRegistering(true)}
+                    className={`flex-1 py-3 text-xs font-extrabold uppercase tracking-wider transition-colors border-b-2 ${
+                      isRegistering
+                        ? 'border-[#C5A059] text-gray-900 dark:text-white'
+                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Create Account
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-600 dark:text-gray-300 font-medium mt-1">
                   {isRegistering
                     ? 'Join our heritage circle for bespoke orders & fast checkout.'
                     : 'Sign in to access your orders, wishlist, and saved addresses.'}
@@ -278,35 +307,35 @@ export const AuthModal: React.FC = () => {
                 {isRegistering && (
                   <>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5">
                         Full Name
                       </label>
                       <div className="relative">
-                        <User className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                        <User className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute left-3 top-3" />
                         <input
                           type="text"
                           required
                           placeholder="e.g. Sara Tadesse"
                           value={fullName}
                           onChange={e => setFullName(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                          className="w-full pl-10 pr-3 py-2.5 text-xs bg-white dark:bg-[#242424] text-gray-900 dark:text-white border border-gray-300 dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] placeholder:text-gray-500 dark:placeholder:text-gray-400 font-medium transition-all"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5">
                         Phone Number <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                        <Phone className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute left-3 top-3" />
                         <input
                           type="tel"
                           required
                           placeholder="+251 9... or 09..."
                           value={phone}
                           onChange={e => setPhone(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                          className="w-full pl-10 pr-3 py-2.5 text-xs bg-white dark:bg-[#242424] text-gray-900 dark:text-white border border-gray-300 dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] placeholder:text-gray-500 dark:placeholder:text-gray-400 font-medium transition-all"
                         />
                       </div>
                     </div>
@@ -314,35 +343,35 @@ export const AuthModal: React.FC = () => {
                 )}
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                    <Mail className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute left-3 top-3" />
                     <input
                       type="email"
                       required
                       placeholder="your.email@example.com"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                      className="w-full pl-10 pr-3 py-2.5 text-xs bg-white dark:bg-[#242424] text-gray-900 dark:text-white border border-gray-300 dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] placeholder:text-gray-500 dark:placeholder:text-gray-400 font-medium transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
+                    <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute left-3 top-3" />
                     <input
                       type="password"
                       required
                       placeholder="••••••••"
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                      className="w-full pl-10 pr-3 py-2.5 text-xs bg-white dark:bg-[#242424] text-gray-900 dark:text-white border border-gray-300 dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] placeholder:text-gray-500 dark:placeholder:text-gray-400 font-medium transition-all"
                     />
                   </div>
                 </div>
@@ -350,7 +379,7 @@ export const AuthModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2 mt-2 shadow-md"
+                  className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] dark:bg-[#C5A059] dark:hover:bg-[#a88647] text-white text-xs uppercase tracking-[0.2em] font-bold py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2 mt-2 shadow-md"
                 >
                   {isLoading ? 'Connecting to Firebase...' : (isRegistering ? 'Register Account' : 'Sign In')} <ArrowRight className="w-4 h-4" />
                 </button>
@@ -361,14 +390,14 @@ export const AuthModal: React.FC = () => {
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={isLoading}
-                  className="w-full bg-white hover:bg-gray-50 border border-[#E5E1DA] text-[#1A1A1A] text-xs font-semibold py-2.5 rounded-sm transition-colors flex items-center justify-center gap-2"
+                  className="w-full bg-white hover:bg-gray-50 dark:bg-[#222] dark:hover:bg-[#2a2a2a] border border-gray-300 dark:border-[#333] text-gray-900 dark:text-white text-xs font-bold py-2.5 rounded-sm transition-colors flex items-center justify-center gap-2 shadow-2xs"
                 >
                   <Globe className="w-4 h-4 text-[#C5A059]" /> Sign in with Google (Firebase)
                 </button>
               </div>
 
               {/* Admin Demo Portal & Session Clear */}
-              <div className="mt-6 pt-6 border-t border-[#E5E1DA]">
+              <div className="mt-6 pt-5 border-t border-gray-200 dark:border-[#333]">
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
@@ -376,7 +405,7 @@ export const AuthModal: React.FC = () => {
                       loginAsDemoAdmin();
                       navigate('/admin');
                     }}
-                    className="flex-1 px-3 py-2 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs font-semibold rounded-sm transition-colors text-center"
+                    className="flex-1 px-3 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs font-bold rounded-sm transition-colors text-center shadow-xs"
                   >
                     👑 Admin Portal Demo
                   </button>
@@ -385,7 +414,7 @@ export const AuthModal: React.FC = () => {
                     onClick={() => {
                       logout();
                     }}
-                    className="px-3 py-2 bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 text-xs font-medium rounded-sm transition-colors text-center"
+                    className="px-3 py-2.5 bg-gray-100 dark:bg-[#282828] hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 text-gray-700 dark:text-gray-300 text-xs font-semibold rounded-sm transition-colors text-center"
                   >
                     Sign Out
                   </button>
@@ -396,7 +425,7 @@ export const AuthModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsRegistering(!isRegistering)}
-                  className="text-xs text-gray-500 hover:text-[#C5A059] transition-colors"
+                  className="text-xs text-gray-600 dark:text-gray-300 hover:text-[#C5A059] dark:hover:text-[#C5A059] font-semibold transition-colors"
                 >
                   {isRegistering
                     ? 'Already have an account? Sign In'
@@ -404,7 +433,7 @@ export const AuthModal: React.FC = () => {
                 </button>
               </div>
 
-              <div className="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-gray-400">
+              <div className="flex items-center justify-center gap-1.5 mt-4 text-[10px] text-gray-500 dark:text-gray-400 font-medium">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059]" />
                 <span>JWT Authenticated Session</span>
               </div>

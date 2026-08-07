@@ -477,27 +477,48 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* -------------------------------------------------------------
-            TAB 2: PRODUCTS INVENTORY MANAGEMENT (DELETE, INCREASE/DECREASE)
+            TAB 2: PRODUCTS INVENTORY MONITORING (CENTRAL INVENTORY SYSTEM)
            ------------------------------------------------------------- */}
         {activeTab === 'products' && (
-          <div className="bg-white border border-[#E5E1DA] rounded-sm overflow-hidden shadow-sm">
-            {/* Table Header & Search */}
-            <div className="p-4 border-b border-[#E5E1DA] bg-[#FCFBFA] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by garment name, region, or category..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-white border border-[#E5E1DA] text-xs rounded-sm focus:outline-none focus:border-[#C5A059]"
-                />
+          <div className="space-y-4">
+            {/* Central Inventory Information Banner */}
+            <div className="bg-[#1A1A1A] text-white p-5 rounded-sm shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-l-4 border-[#C5A059]">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <h3 className="font-serif font-bold text-sm tracking-wide text-white">Central Inventory Management System Connected</h3>
+                </div>
+                <p className="text-xs text-gray-300 font-light max-w-3xl leading-relaxed">
+                  All product catalogs, stock quantities, prices, categories, and item availability are fetched live from the central inventory management system used by cashiers, store managers, and the owner. The website no longer maintains its own separate catalog database.
+                </p>
               </div>
-
-              <div className="text-xs text-gray-500 font-medium">
-                Showing <strong className="text-[#1A1A1A]">{filteredProducts.length}</strong> of {products.length} products
-              </div>
+              <button
+                onClick={loadAdminData}
+                className="px-4 py-2 bg-[#C5A059] hover:bg-[#b08d4b] text-white text-[11px] font-bold uppercase tracking-wider rounded-sm transition-colors flex items-center gap-2 shrink-0"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Sync Inventory
+              </button>
             </div>
+
+            <div className="bg-white border border-[#E5E1DA] rounded-sm overflow-hidden shadow-sm">
+              {/* Table Header & Search */}
+              <div className="p-4 border-b border-[#E5E1DA] bg-[#FCFBFA] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative w-full sm:w-80">
+                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by garment name, region, or category..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-white border border-[#E5E1DA] text-xs rounded-sm focus:outline-none focus:border-[#C5A059]"
+                  />
+                </div>
+
+                <div className="text-xs text-gray-500 font-medium">
+                  Showing <strong className="text-[#1A1A1A]">{filteredProducts.length}</strong> of {products.length} central inventory products
+                </div>
+              </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
@@ -612,6 +633,7 @@ export const AdminDashboard: React.FC = () => {
               </table>
             </div>
           </div>
+        </div>
         )}
 
         {/* -------------------------------------------------------------

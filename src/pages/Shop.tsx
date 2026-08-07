@@ -350,11 +350,6 @@ export const Shop: React.FC = () => {
                     <p className="text-lg font-serif font-bold text-[#1A1A1A]">
                       {formatPrice(prod.price)}
                     </p>
-                    {prod.originalPrice && (
-                      <p className="text-xs text-gray-400 line-through">
-                        {formatPrice(prod.originalPrice)}
-                      </p>
-                    )}
                   </div>
                   <a
                     href={`/product/${prod.id}`}

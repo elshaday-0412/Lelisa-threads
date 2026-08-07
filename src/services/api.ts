@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { Product, Order, User, PaymentReceipt } from '../types/index.js';
-import { SAMPLE_PRODUCTS } from '../data/sampleProducts.js';
-import { FirestoreInventoryService, FirestoreOrderService } from './firebaseService.js';
+import { FirestoreOrderService } from './firebaseService.js';
+import { ExternalInventoryService } from './externalInventoryService.js';
+import { normalizeProduct } from '../utils/productUtils.js';
 
 const api = axios.create({
   baseURL: '/api',
@@ -22,150 +23,58 @@ export const ProductService = {
     products: Product[];
     pagination: { total: number; page: number; limit: number; totalPages: number };
   }> {
-    try {
-      // Direct real-time fetch from Firebase Firestore DB
-      const firestoreProducts = await FirestoreInventoryService.getProducts();
-      let list = firestoreProducts.length ? firestoreProducts : [...SAMPLE_PRODUCTS];
-
-      if (params?.category && params.category !== 'All') {
-        list = list.filter(p => p.category.toLowerCase() === String(params.category).toLowerCase());
-      }
-      if (params?.gender && params.gender !== 'All') {
-        list = list.filter(p => p.gender === params.gender);
-      }
-      if (params?.region && params.region !== 'All') {
-        list = list.filter(p => p.region.toLowerCase() === String(params.region).toLowerCase());
-      }
-      if (params?.search) {
-        const q = String(params.search).toLowerCase();
-        list = list.filter(
-          p =>
-            p.name.toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q) ||
-            p.region.toLowerCase().includes(q)
-        );
-      }
-      return {
-        products: list,
-        pagination: { total: list.length, page: 1, limit: list.length, totalPages: 1 }
-      };
-    } catch (err) {
-      console.warn('Firestore fallback: getProducts', err);
-      let list = [...SAMPLE_PRODUCTS];
-      return {
-        products: list,
-        pagination: { total: list.length, page: 1, limit: list.length, totalPages: 1 }
-      };
-    }
+    const res = await ExternalInventoryService.getProducts(params);
+    return {
+      products: res.products,
+      pagination: res.pagination
+    };
   },
 
   async getProduct(idOrSlug: string): Promise<Product | null> {
-    try {
-      const firestoreProducts = await FirestoreInventoryService.getProducts();
-      const found = firestoreProducts.find(p => p.id === idOrSlug || p.slug === idOrSlug);
-      if (found) return found;
-      const response = await api.get(`/products/${idOrSlug}`);
-      return response.data;
-    } catch (err) {
-      return SAMPLE_PRODUCTS.find(p => p.id === idOrSlug || p.slug === idOrSlug) || null;
-    }
+    return await ExternalInventoryService.getProduct(idOrSlug);
   },
 
   async getCategories(): Promise<Array<{ id: string; name: string; slug: string; description: string; image: string; count: number }>> {
-    try {
-      const response = await api.get('/categories');
-      return response.data;
-    } catch (err) {
-      const cats = [
-        { id: 'cat-1', name: 'Habesha Kemis', slug: 'habesha-kemis', description: 'Handwoven Ethiopian cultural dresses with intricate Tilet embroidery.', image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80', count: 12 },
-        { id: 'cat-2', name: "Men's Traditional Wear", slug: 'mens-traditional-wear', description: 'Traditional suits, tunics, and robes for weddings and ceremonies.', image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80', count: 10 },
-        { id: 'cat-3', name: 'Wedding Collection', slug: 'wedding-collection', description: 'Regal bridal gowns, groom capes (Koba), and Mels attire.', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&q=80', count: 6 },
-        { id: 'cat-4', name: "Children's Wear", slug: 'childrens-wear', description: 'Charming cultural outfits for boys and girls.', image: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?auto=format&fit=crop&w=800&q=80', count: 8 },
-        { id: 'cat-5', name: 'Jewelry', slug: 'jewelry', description: 'Authentic Ethiopian filigree crosses, necklaces, and headpieces.', image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80', count: 8 },
-        { id: 'cat-6', name: 'Scarves', slug: 'scarves', description: 'Soft handwoven Netela, Kuta, and Gabi wraps.', image: 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?auto=format&fit=crop&w=800&q=80', count: 6 },
-        { id: 'cat-7', name: 'Shoes', slug: 'shoes', description: 'Traditional leather chamma sandals and Tilet-accented loafers.', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80', count: 5 },
-        { id: 'cat-8', name: 'Bags', slug: 'bags', description: 'Leather and woven Tilet totes, evening clutches, and Agelgil bags.', image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=800&q=80', count: 7 }
-      ];
-      return cats;
-    }
+    return await ExternalInventoryService.getCategories();
   },
 
-  async addReview(productId: string, userName: string, rating: number, comment: string) {
-    const response = await api.post('/reviews', { productId, userName, rating, comment });
-    return response.data;
-  },
-
-  async createProduct(data: any): Promise<Product> {
+  async addReview(productId: string, userName: string, rating: number, comment: string, userId?: string, userEmail?: string) {
     try {
-      const newProd: Product = {
-        id: data.id || `hb-prod-${Date.now()}`,
-        slug: data.slug || `prod-${Date.now()}`,
-        name: data.name || 'Custom Ethiopian Weave',
-        description: data.description || 'Handcrafted traditional garment.',
-        price: Number(data.price) || 2500,
-        originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
-        category: data.category || 'Habesha Kemis',
-        gender: data.gender || 'WOMEN',
-        region: data.region || 'Amhara',
-        material: data.material || '100% Cotton & Tilet',
-        sizes: Array.isArray(data.sizes) ? data.sizes : ['Standard'],
-        colors: Array.isArray(data.colors) ? data.colors : ['White & Gold'],
-        images: Array.isArray(data.images) && data.images.length ? data.images : ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80'],
-        stock: data.stock !== undefined ? Number(data.stock) : 15,
-        rating: data.rating || 5.0,
-        reviewCount: data.reviewCount || 1,
-        reviews: [],
-        isFeatured: Boolean(data.isFeatured || data.featured),
-        isNewArrival: Boolean(data.isNewArrival)
-      };
-      await FirestoreInventoryService.saveProduct(newProd);
-      return newProd;
+      const { FirestoreReviewService } = await import('./firebaseService.js');
+      const review = await FirestoreReviewService.addReview({
+        productId,
+        userId: userId || 'anonymous',
+        userName,
+        userEmail,
+        rating,
+        comment
+      });
+      return review;
     } catch {
-      const response = await api.post('/products', data);
+      const response = await api.post('/reviews', { productId, userName, rating, comment });
       return response.data;
     }
+  },
+
+  // Notice: Product modifications (creation/editing/deletion) are handled directly in the central inventory system
+  async createProduct(data: any): Promise<Product> {
+    console.warn('Central Inventory System notice: Product catalog management is external.');
+    return await ExternalInventoryService.getProduct(data.id || 'hb-001') || (data as Product);
   },
 
   async updateProduct(id: string, data: any): Promise<Product> {
-    try {
-      const existing = await this.getProduct(id);
-      const updated: Product = {
-        ...(existing || {} as Product),
-        ...data,
-        id
-      };
-      await FirestoreInventoryService.saveProduct(updated);
-      const sampleIdx = SAMPLE_PRODUCTS.findIndex(p => p.id === id);
-      if (sampleIdx !== -1) {
-        SAMPLE_PRODUCTS[sampleIdx] = updated;
-      }
-      return updated;
-    } catch {
-      const response = await api.put(`/products/${id}`, data);
-      return response.data;
-    }
+    console.warn('Central Inventory System notice: Stock and pricing edits originate from the central inventory system.');
+    const prod = await ExternalInventoryService.getProduct(id);
+    return prod || (data as Product);
   },
 
   async updateStock(id: string, newStock: number): Promise<void> {
-    try {
-      await FirestoreInventoryService.updateStock(id, newStock);
-      const sampleIdx = SAMPLE_PRODUCTS.findIndex(p => p.id === id);
-      if (sampleIdx !== -1) {
-        SAMPLE_PRODUCTS[sampleIdx].stock = newStock;
-      }
-    } catch (err) {
-      console.warn('updateStock error:', err);
-    }
+    console.warn('Central Inventory System notice: Stock updates originate from the central inventory system.');
   },
 
   async deleteProduct(id: string): Promise<{ success: boolean }> {
-    try {
-      await FirestoreInventoryService.deleteProduct(id);
-      return { success: true };
-    } catch {
-      const response = await api.delete(`/products/${id}`);
-      return response.data;
-    }
+    console.warn('Central Inventory System notice: Product deletions originate from the central inventory system.');
+    return { success: true };
   }
 };
 

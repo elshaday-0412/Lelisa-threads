@@ -6,7 +6,7 @@ import { ShieldCheck, Truck, CheckCircle2, Lock, ArrowRight, Smartphone, Buildin
 import { Order, PaymentReceipt } from '../types/index.js';
 
 export const Checkout: React.FC = () => {
-  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, t } = useApp();
+  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, requireAuth, t } = useApp();
   const navigate = useNavigate();
 
   const [customerName, setCustomerName] = useState(user ? user.fullName : '');
@@ -83,89 +83,91 @@ export const Checkout: React.FC = () => {
       return;
     }
 
-    setPaymentError(null);
-    setIsSubmitting(true);
+    requireAuth(async () => {
+      setPaymentError(null);
+      setIsSubmitting(true);
 
-    try {
-      let receipt: PaymentReceipt | null = null;
+      try {
+        let receipt: PaymentReceipt | null = null;
 
-      // 1. If electronic payment method, invoke real payment processing API
-      if (paymentMethod !== 'CASH_ON_DELIVERY') {
-        try {
-          const resPayment = await PaymentService.processPayment({
-            amount: totalAmount,
-            currency: 'ETB',
-            paymentMethod,
-            customerEmail,
-            customerName,
-            customerPhone,
-            mobileNumber: mobileWalletPhone,
-            otpPin,
-            cardNumber,
-            cardExp,
-            cardCvc
-          });
+        // 1. If electronic payment method, invoke real payment processing API
+        if (paymentMethod !== 'CASH_ON_DELIVERY') {
+          try {
+            const resPayment = await PaymentService.processPayment({
+              amount: totalAmount,
+              currency: 'ETB',
+              paymentMethod,
+              customerEmail,
+              customerName,
+              customerPhone,
+              mobileNumber: mobileWalletPhone,
+              otpPin,
+              cardNumber,
+              cardExp,
+              cardCvc
+            });
 
-          if (!resPayment.success || !resPayment.receipt) {
-            setPaymentError(resPayment.message || 'Payment authorization failed.');
-            showToast('Payment Declined', resPayment.message || 'Please check your payment details and try again.', 'error');
+            if (!resPayment.success || !resPayment.receipt) {
+              setPaymentError(resPayment.message || 'Payment authorization failed.');
+              showToast('Payment Declined', resPayment.message || 'Please check your payment details and try again.', 'error');
+              setIsSubmitting(false);
+              return;
+            }
+
+            receipt = resPayment.receipt;
+            setPaymentReceipt(receipt);
+            showToast('Payment Authorized!', `Gateway reference ${receipt.transactionRef} confirmed.`, 'success');
+          } catch (paymentErr: any) {
+            const errorMsg = paymentErr.response?.data?.error || 'Unable to connect to payment gateway. Please verify your OTP or Card credentials.';
+            setPaymentError(errorMsg);
+            showToast('Payment Gateway Error', errorMsg, 'error');
             setIsSubmitting(false);
             return;
           }
-
-          receipt = resPayment.receipt;
-          setPaymentReceipt(receipt);
-          showToast('Payment Authorized!', `Gateway reference ${receipt.transactionRef} confirmed.`, 'success');
-        } catch (paymentErr: any) {
-          const errorMsg = paymentErr.response?.data?.error || 'Unable to connect to payment gateway. Please verify your OTP or Card credentials.';
-          setPaymentError(errorMsg);
-          showToast('Payment Gateway Error', errorMsg, 'error');
-          setIsSubmitting(false);
-          return;
         }
+
+        // 2. Submit Order with Verified Payment Metadata
+        const payload = {
+          userId: user ? user.id : 'guest',
+          customerName,
+          customerEmail,
+          customerPhone,
+          shippingAddress,
+          city,
+          region,
+          paymentMethod,
+          items: cart.map((item, idx) => ({
+            id: `item-${Date.now()}-${idx}`,
+            productId: item.product.id,
+            name: item.product.name,
+            price: item.product.price,
+            quantity: item.quantity,
+            size: item.selectedSize,
+            color: item.selectedColor,
+            image: item.product.images[0]
+          })),
+          subtotal: cartSubtotal,
+          shippingCost,
+          totalAmount,
+          isPaid: paymentMethod !== 'CASH_ON_DELIVERY',
+          transactionRef: receipt?.transactionRef,
+          paymentTimestamp: receipt?.timestamp,
+          paymentGatewayResponse: receipt?.gatewayDetails.authCode,
+          cardLastFour: receipt?.gatewayDetails.cardLastFour,
+          mobileWalletPhone: receipt?.gatewayDetails.mobileNumber
+        };
+
+        const resOrder = await OrderService.createOrder(payload);
+        setConfirmedOrder(resOrder);
+        clearCart();
+        showToast('Order Placed Successfully!', `Your order ${resOrder.orderNumber} is confirmed.`, 'success');
+        window.scrollTo(0, 0);
+      } catch (err) {
+        showToast('Order Error', 'There was a problem placing your order. Please try again.', 'error');
+      } finally {
+        setIsSubmitting(false);
       }
-
-      // 2. Submit Order with Verified Payment Metadata
-      const payload = {
-        userId: user ? user.id : 'guest',
-        customerName,
-        customerEmail,
-        customerPhone,
-        shippingAddress,
-        city,
-        region,
-        paymentMethod,
-        items: cart.map((item, idx) => ({
-          id: `item-${Date.now()}-${idx}`,
-          productId: item.product.id,
-          name: item.product.name,
-          price: item.product.price,
-          quantity: item.quantity,
-          size: item.selectedSize,
-          color: item.selectedColor,
-          image: item.product.images[0]
-        })),
-        subtotal: cartSubtotal,
-        shippingCost,
-        totalAmount,
-        isPaid: paymentMethod !== 'CASH_ON_DELIVERY',
-        transactionRef: receipt?.transactionRef,
-        paymentTimestamp: receipt?.timestamp,
-        paymentGatewayResponse: receipt?.gatewayDetails.authCode,
-        cardLastFour: receipt?.gatewayDetails.cardLastFour,
-        mobileWalletPhone: receipt?.gatewayDetails.mobileNumber
-      };
-
-      const resOrder = await OrderService.createOrder(payload);
-      setConfirmedOrder(resOrder);
-      clearCart();
-      showToast('Order Placed Successfully!', `Your order ${resOrder.orderNumber} is confirmed.`, 'success');
-      window.scrollTo(0, 0);
-    } catch (err) {
-      showToast('Order Error', 'There was a problem placing your order. Please try again.', 'error');
-    } finally {
-      setIsSubmitting(false);
-    }
+    }, 'Please log in or create an account to place your order.');
   };
 
   // Success Confirmation Screen

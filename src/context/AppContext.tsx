@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Product, CartItem, User } from '../types/index.js';
 import { WishlistService } from '../services/api.js';
 
@@ -39,6 +39,11 @@ interface AppContextType {
   setPendingPhoneUser: (user: User | null) => void;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
+  authLoading: boolean;
+  authModalReason: string | null;
+  setAuthModalReason: (reason: string | null) => void;
+  requireAuth: (action: () => void, modalReason?: string) => boolean;
+  executePendingAction: () => void;
   loginAsDemoAdmin: () => void;
   loginAsDemoUser: () => void;
   logout: () => void;
@@ -67,18 +72,32 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Cart state from localStorage
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('ht_cart');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Cart state - strictly initialized empty for user isolation
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Wishlist state
-  const [wishlistIds, setWishlistIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ht_wishlist');
-    return saved ? JSON.parse(saved) : ['hb-001', 'hb-003', 'jw-001'];
-  });
+  // Wishlist state - strictly initialized empty for user isolation
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+
+  // Helper to sync cart with Firebase Firestore for current authenticated user
+  const syncCartToFirebase = (newCart: CartItem[], targetUid?: string) => {
+    const uid = targetUid || user?.id;
+    if (uid) {
+      import('../services/firebaseService.js').then(({ FirestoreUserDataService }) => {
+        FirestoreUserDataService.saveUserCart(uid, newCart);
+      });
+    }
+  };
+
+  // Helper to sync wishlist with Firebase Firestore for current authenticated user
+  const syncWishlistToFirebase = (newWishlist: string[], targetUid?: string) => {
+    const uid = targetUid || user?.id;
+    if (uid) {
+      import('../services/firebaseService.js').then(({ FirestoreUserDataService }) => {
+        FirestoreUserDataService.saveUserWishlist(uid, newWishlist);
+      });
+    }
+  };
 
   // QuickView state
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
@@ -101,6 +120,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
   const [pendingPhoneUser, setPendingPhoneUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authModalReason, setAuthModalReason] = useState<string | null>(null);
+  const pendingActionRef = useRef<(() => void) | null>(null);
+
+  const requireAuth = (action: () => void, modalReason?: string): boolean => {
+    if (user) {
+      action();
+      return true;
+    } else {
+      pendingActionRef.current = action;
+      if (modalReason) {
+        setAuthModalReason(modalReason);
+      } else {
+        setAuthModalReason('Please log in or create an account to use this feature.');
+      }
+      setIsAuthModalOpen(true);
+      return false;
+    }
+  };
+
+  const executePendingAction = () => {
+    if (pendingActionRef.current) {
+      const actionToRun = pendingActionRef.current;
+      pendingActionRef.current = null;
+      setAuthModalReason(null);
+      setTimeout(() => {
+        actionToRun();
+      }, 100);
+    }
+  };
 
   // Currency display toggle (ETB vs USD luxury reference)
   const [currencyMode, setCurrencyMode] = useState<'ETB' | 'USD'>('ETB');
@@ -144,12 +193,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
-    localStorage.setItem('ht_cart', JSON.stringify(cart));
-  }, [cart]);
+    if (user) {
+      localStorage.setItem(`ht_cart_${user.id}`, JSON.stringify(cart));
+    } else {
+      localStorage.removeItem('ht_cart');
+    }
+  }, [cart, user]);
 
   useEffect(() => {
-    localStorage.setItem('ht_wishlist', JSON.stringify(wishlistIds));
-  }, [wishlistIds]);
+    if (user) {
+      localStorage.setItem(`ht_wishlist_${user.id}`, JSON.stringify(wishlistIds));
+    } else {
+      localStorage.removeItem('ht_wishlist');
+    }
+  }, [wishlistIds, user]);
 
   useEffect(() => {
     if (user) {
@@ -159,33 +216,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [user]);
 
-  // Seed / Sync Firebase Firestore DB on initial mount
+  // Initialize Firebase Auth listener & user session
   useEffect(() => {
-    import('../services/firebaseService.js').then(({ FirestoreInventoryService, FirebaseAuthService, isValidPhone }) => {
-      FirestoreInventoryService.seedProductsIfEmpty().catch(err => {
-        console.warn('Firestore initialization notice:', err);
-      });
-
-      const unsubscribe = FirebaseAuthService.onAuthChange(authUser => {
+    import('../services/firebaseService.js').then(({ FirebaseAuthService, FirestoreUserDataService, isValidPhone }) => {
+      const unsubscribe = FirebaseAuthService.onAuthChange(async authUser => {
         if (authUser) {
           if (isValidPhone(authUser.phone)) {
             setUser(authUser);
             setPendingPhoneUser(null);
+            // Load user-specific bag and favorites from Firebase Firestore
+            const userData = await FirestoreUserDataService.getUserData(authUser.id);
+            setCart(userData.cart);
+            setWishlistIds(userData.wishlist);
           } else {
-            // User authenticated in Firebase but lacks valid phone number!
-            // Do NOT log into AppContext automatically. Store in pendingPhoneUser and open AuthModal.
             setUser(null);
             setPendingPhoneUser(authUser);
+            setCart([]);
+            setWishlistIds([]);
             setIsAuthModalOpen(true);
           }
         } else {
+          // Immediately clear displayed bag items, favorites, badges on sign-out
           setUser(null);
           setPendingPhoneUser(null);
+          setCart([]);
+          setWishlistIds([]);
+          localStorage.removeItem('ht_user');
+          localStorage.removeItem('ht_cart');
+          localStorage.removeItem('ht_wishlist');
         }
+        setAuthLoading(false);
       });
       return () => unsubscribe();
     }).catch(e => {
       console.warn('Firebase Service load notice:', e);
+      setAuthLoading(false);
     });
   }, []);
 
@@ -213,13 +278,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           item.selectedColor === selectedColor
       );
 
+      let updated: CartItem[];
       if (existingIndex > -1) {
-        const updated = [...prev];
+        updated = [...prev];
         updated[existingIndex].quantity += qty;
-        return updated;
       } else {
-        return [...prev, { product, quantity: qty, selectedSize, selectedColor }];
+        updated = [...prev, { product, quantity: qty, selectedSize, selectedColor }];
       }
+      syncCartToFirebase(updated);
+      return updated;
     });
 
     showToast('Added to Bag', `${product.name} (${selectedSize})`, 'success');
@@ -234,16 +301,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCart(prev => {
       const updated = [...prev];
       updated[index].quantity = quantity;
+      syncCartToFirebase(updated);
       return updated;
     });
   };
 
   const removeFromCart = (index: number) => {
-    setCart(prev => prev.filter((_, i) => i !== index));
+    setCart(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      syncCartToFirebase(updated);
+      return updated;
+    });
   };
 
   const clearCart = () => {
     setCart([]);
+    syncCartToFirebase([]);
   };
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
@@ -258,6 +331,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         exists ? 'Item removed from wishlist' : 'Item added to your wishlist',
         'info'
       );
+      syncWishlistToFirebase(updated);
       return updated;
     });
 
@@ -268,7 +342,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const isWishlisted = (productId: string) => wishlistIds.includes(productId);
 
-  const loginAsDemoAdmin = () => {
+  const loginAsDemoAdmin = async () => {
     const adminUser: User = {
       id: 'user-admin',
       email: 'admin@habeshathreads.com',
@@ -286,11 +360,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ]
     };
     setUser(adminUser);
+    const { FirestoreUserDataService } = await import('../services/firebaseService.js');
+    const userData = await FirestoreUserDataService.getUserData(adminUser.id);
+    setCart(userData.cart);
+    setWishlistIds(userData.wishlist);
     showToast('Admin Mode Enabled', 'Logged in as Sara Tadesse (Admin)', 'success');
     setIsAuthModalOpen(false);
   };
 
-  const loginAsDemoUser = () => {
+  const loginAsDemoUser = async () => {
     const custUser: User = {
       id: 'user-customer',
       email: 'user@habeshathreads.com',
@@ -308,6 +386,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ]
     };
     setUser(custUser);
+    const { FirestoreUserDataService } = await import('../services/firebaseService.js');
+    const userData = await FirestoreUserDataService.getUserData(custUser.id);
+    setCart(userData.cart);
+    setWishlistIds(userData.wishlist);
     showToast('Customer Mode Enabled', 'Logged in as Dawit Abebe', 'success');
     setIsAuthModalOpen(false);
   };
@@ -315,7 +397,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logout = () => {
     setUser(null);
     setPendingPhoneUser(null);
+    setCart([]);
+    setWishlistIds([]);
     localStorage.removeItem('ht_user');
+    localStorage.removeItem('ht_cart');
+    localStorage.removeItem('ht_wishlist');
     setIsAuthModalOpen(false);
     import('../services/firebaseService.js').then(({ FirebaseAuthService }) => {
       FirebaseAuthService.logout().catch(err => {
@@ -357,6 +443,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setPendingPhoneUser,
         isAuthModalOpen,
         setIsAuthModalOpen,
+        authLoading,
+        authModalReason,
+        setAuthModalReason,
+        requireAuth,
+        executePendingAction,
         loginAsDemoAdmin,
         loginAsDemoUser,
         logout,

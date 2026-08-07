@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ProductService } from '../services/api.js';
+import { normalizeProduct } from '../utils/productUtils.js';
 import { Product } from '../types/index.js';
 import { useApp } from '../context/AppContext.js';
 import { Star, Heart, ShoppingBag, Truck, ShieldCheck, RefreshCw, ChevronRight, Award } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard.js';
+import { RatingStars } from '../components/RatingStars.js';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { addToCart, toggleWishlist, isWishlisted, formatPrice, user, showToast } = useApp();
+  const { addToCart, toggleWishlist, isWishlisted, formatPrice, user, showToast, requireAuth } = useApp();
   const navigate = useNavigate();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -75,40 +77,50 @@ export const ProductDetails: React.FC = () => {
   const wishlisted = isWishlisted(product.id);
 
   const handleAddToCart = () => {
-    addToCart(product, selectedSize, selectedColor, qty);
+    requireAuth(() => {
+      addToCart(product, selectedSize, selectedColor, qty);
+    }, 'Please log in or create an account to add items to your shopping bag.');
   };
 
   const handleBuyNow = () => {
-    addToCart(product, selectedSize, selectedColor, qty);
-    navigate('/checkout');
+    requireAuth(() => {
+      addToCart(product, selectedSize, selectedColor, qty);
+      navigate('/checkout');
+    }, 'Please log in or create an account to proceed to checkout.');
   };
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentInput.trim()) return;
-    setIsSubmittingReview(true);
-    try {
-      const newRev = await ProductService.addReview(
-        product.id,
-        user ? user.fullName : 'Anonymous Habesha',
-        ratingInput,
-        commentInput
-      );
-      setProduct(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          reviewCount: prev.reviewCount + 1,
-          reviews: [newRev, ...prev.reviews]
-        };
-      });
-      setCommentInput('');
-      showToast('Review Submitted', 'Thank you for sharing your experience with our heritage circle.', 'success');
-    } catch (err) {
-      showToast('Error', 'Failed submitting your review. Please try again.', 'error');
-    } finally {
-      setIsSubmittingReview(false);
-    }
+
+    requireAuth(async () => {
+      setIsSubmittingReview(true);
+      try {
+        const newRev = await ProductService.addReview(
+          product.id,
+          user ? user.fullName : 'Anonymous Habesha',
+          ratingInput,
+          commentInput,
+          user?.id,
+          user?.email
+        );
+        setProduct(prev => {
+          if (!prev) return prev;
+          const updatedReviews = [newRev, ...(prev.reviews || [])];
+          const updatedProduct = normalizeProduct({
+            ...prev,
+            reviews: updatedReviews
+          });
+          return updatedProduct;
+        });
+        setCommentInput('');
+        showToast('Review Submitted', 'Thank you for sharing your experience with our heritage circle.', 'success');
+      } catch (err) {
+        showToast('Error', 'Failed submitting your review. Please try again.', 'error');
+      } finally {
+        setIsSubmittingReview(false);
+      }
+    }, 'Please log in or create an account to write a review.');
   };
 
   return (
@@ -173,7 +185,7 @@ export const ProductDetails: React.FC = () => {
                 </div>
 
                 <button
-                  onClick={() => toggleWishlist(product.id)}
+                  onClick={() => requireAuth(() => toggleWishlist(product.id), 'Please log in or create an account to save items to your wishlist.')}
                   className={`w-11 h-11 rounded-full border border-[#E5E1DA] hover:border-[#C5A059] flex items-center justify-center transition-colors ${
                     wishlisted ? 'bg-[#C5A059]/10 border-[#C5A059]' : ''
                   }`}
@@ -189,11 +201,17 @@ export const ProductDetails: React.FC = () => {
 
               {/* Rating & Stock */}
               <div className="flex items-center gap-4 mb-6 pb-6 border-b border-[#E5E1DA]">
-                <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 fill-[#C5A059] text-[#C5A059]" />
-                  <span className="text-sm font-bold text-[#1A1A1A]">{product.rating.toFixed(1)}</span>
-                  <span className="text-xs text-gray-500">({product.reviewCount} reviews)</span>
-                </div>
+                <button
+                  onClick={() => setActiveTab('reviews')}
+                  className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                  title="View customer reviews"
+                >
+                  <RatingStars
+                    rating={product.rating}
+                    reviewCount={product.reviewCount}
+                    size="md"
+                  />
+                </button>
                 <span className="text-gray-300">•</span>
                 <span className="text-xs font-semibold text-[#C5A059]">
                   {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Bespoke Order Only'}
@@ -205,11 +223,6 @@ export const ProductDetails: React.FC = () => {
                 <span className="text-3xl font-serif font-bold text-[#1A1A1A]">
                   {formatPrice(product.price)}
                 </span>
-                {product.originalPrice && (
-                  <span className="text-lg font-serif text-gray-400 line-through">
-                    {formatPrice(product.originalPrice)}
-                  </span>
-                )}
               </div>
 
               <p className="text-xs text-gray-600 font-light leading-relaxed mb-8">
@@ -465,43 +478,80 @@ export const ProductDetails: React.FC = () => {
 
             {activeTab === 'reviews' && (
               <div className="space-y-8">
+                {/* Rating Overview Box */}
+                <div className="p-6 bg-white dark:bg-[#1C1C1C] border border-[#E5E1DA] dark:border-[#333] rounded-sm grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                  <div className="md:col-span-5 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[#E5E1DA] dark:border-[#333] pb-6 md:pb-0 md:pr-6 text-center">
+                    <span className="text-4xl md:text-5xl font-serif font-bold text-[#1A1A1A] dark:text-[#C5A059]">
+                      {product.rating.toFixed(1)}
+                    </span>
+                    <RatingStars rating={product.rating} showScore={false} showCount={false} size="lg" className="my-2" />
+                    <span className="text-xs text-[#C5A059] dark:text-[#C5A059] uppercase tracking-widest font-semibold">
+                      Based on {product.reviewCount} customer {product.reviewCount === 1 ? 'review' : 'reviews'}
+                    </span>
+                  </div>
+
+                  {/* Rating Breakdown Bars */}
+                  <div className="md:col-span-7 space-y-2">
+                    {[5, 4, 3, 2, 1].map(numStars => {
+                      const count = product.reviews.filter(r => Math.round(r.rating) === numStars).length;
+                      const pct = product.reviews.length > 0 ? Math.round((count / product.reviews.length) * 100) : (numStars === 5 ? 100 : 0);
+                      return (
+                        <div key={numStars} className="flex items-center gap-3 text-xs">
+                          <span className="w-12 text-[#1A1A1A] dark:text-[#C5A059] font-semibold shrink-0 flex items-center gap-1">
+                            {numStars} <Star className="w-3 h-3 fill-[#C5A059] text-[#C5A059]" />
+                          </span>
+                          <div className="flex-1 h-2 bg-[#F4F1ED] dark:bg-[#2B2B2B] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#C5A059] transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            ></div>
+                          </div>
+                          <span className="w-10 text-right text-[#C5A059] dark:text-[#C5A059] text-[11px] font-mono font-bold shrink-0">
+                            {pct}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Submit review form */}
-                <form onSubmit={handleReviewSubmit} className="bg-[#FCFBFA] p-6 border border-[#E5E1DA] rounded-sm">
-                  <h4 className="text-sm font-serif font-semibold text-[#1A1A1A] mb-3">
+                <form onSubmit={handleReviewSubmit} className="bg-[#FCFBFA] dark:bg-[#1A1A1A] p-6 border border-[#E5E1DA] dark:border-[#333] rounded-sm">
+                  <h4 className="text-sm font-serif font-semibold text-[#1A1A1A] dark:text-[#C5A059] mb-3">
                     Share Your Review
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] dark:text-[#C5A059] mb-1">
                         Your Name
                       </label>
                       <input
                         type="text"
                         disabled
                         value={user ? user.fullName : 'Anonymous Habesha'}
-                        className="w-full px-3 py-2 text-xs bg-gray-100 border border-[#E5E1DA] rounded-sm text-gray-500"
+                        className="w-full px-3 py-2 text-xs bg-gray-100 dark:bg-[#252525] border border-[#E5E1DA] dark:border-[#333] rounded-sm text-[#1A1A1A] dark:text-[#C5A059] font-bold"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] dark:text-[#C5A059] mb-1">
                         Rating
                       </label>
                       <select
                         value={ratingInput}
                         onChange={e => setRatingInput(Number(e.target.value))}
-                        className="w-full px-3 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                        className="w-full px-3 py-2 text-xs bg-white dark:bg-[#252525] border border-[#E5E1DA] dark:border-[#333] text-[#1A1A1A] dark:text-[#C5A059] font-bold rounded-sm focus:outline-none focus:border-[#C5A059]"
                       >
-                        <option value="5">★★★★★ (5 - Exceptional)</option>
-                        <option value="4">★★★★☆ (4 - Excellent)</option>
-                        <option value="3">★★★☆☆ (3 - Good)</option>
-                        <option value="2">★★☆☆☆ (2 - Fair)</option>
-                        <option value="1">★☆☆☆☆ (1 - Poor)</option>
+                        <option value="5" className="text-[#C5A059] bg-white dark:bg-[#252525]">★★★★★ (5 - Exceptional)</option>
+                        <option value="4" className="text-[#C5A059] bg-white dark:bg-[#252525]">★★★★☆ (4 - Excellent)</option>
+                        <option value="3" className="text-[#C5A059] bg-white dark:bg-[#252525]">★★★☆☆ (3 - Good)</option>
+                        <option value="2" className="text-[#C5A059] bg-white dark:bg-[#252525]">★★☆☆☆ (2 - Fair)</option>
+                        <option value="1" className="text-[#C5A059] bg-white dark:bg-[#252525]">★☆☆☆☆ (1 - Poor)</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] dark:text-[#C5A059] mb-1">
                       Your Comments
                     </label>
                     <textarea
@@ -510,14 +560,14 @@ export const ProductDetails: React.FC = () => {
                       placeholder="Tell us about the fit, weaving quality, or celebration where you wore it..."
                       value={commentInput}
                       onChange={e => setCommentInput(e.target.value)}
-                      className="w-full p-3 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                      className="w-full p-3 text-xs bg-white dark:bg-[#252525] border border-[#E5E1DA] dark:border-[#333] text-[#1A1A1A] dark:text-[#C5A059] font-semibold placeholder:text-gray-400 focus:outline-none focus:border-[#C5A059]"
                     ></textarea>
                   </div>
 
                   <button
                     type="submit"
                     disabled={isSubmittingReview}
-                    className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-widest font-bold rounded-sm transition-colors"
+                    className="px-6 py-2.5 bg-[#1A1A1A] dark:bg-[#C5A059] hover:bg-[#C5A059] dark:hover:bg-[#1A1A1A] text-white text-xs uppercase tracking-widest font-bold rounded-sm transition-colors"
                   >
                     {isSubmittingReview ? 'Submitting...' : 'Post Review'}
                   </button>
@@ -526,31 +576,30 @@ export const ProductDetails: React.FC = () => {
                 {/* List of reviews */}
                 <div className="space-y-6">
                   {product.reviews.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">
+                    <p className="text-xs text-[#C5A059] font-medium italic">
                       No reviews yet for this garment. Be the first to review!
                     </p>
                   ) : (
                     product.reviews.map(rev => (
                       <div
                         key={rev.id}
-                        className="p-6 bg-white border border-[#E5E1DA] rounded-sm flex flex-col sm:flex-row justify-between items-start gap-4"
+                        className="p-6 bg-white dark:bg-[#1C1C1C] border border-[#E5E1DA] dark:border-[#333] rounded-sm flex flex-col sm:flex-row justify-between items-start gap-4"
                       >
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-bold text-[#1A1A1A]">{rev.userName}</span>
-                            <span className="text-[10px] uppercase tracking-widest text-[#C5A059] bg-[#FCFBFA] px-2 py-0.5 border border-[#E5E1DA] rounded-sm">
+                            <span className="text-xs font-bold text-[#1A1A1A] dark:text-[#C5A059]">{rev.userName}</span>
+                            <span className="text-[10px] uppercase tracking-widest text-[#C5A059] bg-[#FCFBFA] dark:bg-[#252525] px-2 py-0.5 border border-[#E5E1DA] dark:border-[#333] rounded-sm font-bold">
                               Verified Habesha Buyer
                             </span>
                           </div>
-                          <div className="flex text-[#C5A059] text-sm mb-2">
-                            {'★'.repeat(rev.rating)}
-                            {'☆'.repeat(5 - rev.rating)}
+                          <div className="mb-2">
+                            <RatingStars rating={rev.rating} showScore={false} showCount={false} size="sm" />
                           </div>
-                          <p className="text-xs text-gray-700 font-light leading-relaxed">
+                          <p className="text-xs text-[#1A1A1A] dark:text-[#C5A059] font-medium leading-relaxed">
                             {rev.comment}
                           </p>
                         </div>
-                        <span className="text-[10px] text-gray-400 shrink-0">
+                        <span className="text-[10px] text-[#C5A059] font-semibold shrink-0">
                           {rev.createdAt}
                         </span>
                       </div>

@@ -2,6 +2,8 @@
 // Categories: Habesha Kemis, Men's Traditional Wear, Children's Wear, Wedding Collection, Jewelry, Scarves, Shoes, Bags
 // Regions: Amhara, Tigray, Oromo, Gurage, Harari, Sidama, Wolayta, Afar, National Heritage
 
+import { normalizeProduct } from '../utils/productUtils.js';
+
 export interface ProductReview {
   id: string;
   userName: string;
@@ -33,7 +35,7 @@ export interface Product {
   reviews: ProductReview[];
 }
 
-export const SAMPLE_PRODUCTS: Product[] = [
+const RAW_SAMPLE_PRODUCTS: Product[] = [
   // Habesha Kemis (Women's Traditional Dresses)
   {
     id: 'hb-001',
@@ -41,7 +43,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'sheba-royal-gold-habesha-kemis',
     description: 'A masterpiece of traditional Ethiopian craftsmanship. Handwoven from fine Shemma cotton with intricate gold and bronze Tilet embroidery around the neckline, bodice, and flowing hem. Perfectly tailored for weddings and religious celebrations.',
     price: 18500,
-    originalPrice: 22000,
     category: 'Habesha Kemis',
     region: 'Amhara',
     material: 'Handwoven Cotton (Menet) & Gold Thread',
@@ -55,11 +56,12 @@ export const SAMPLE_PRODUCTS: Product[] = [
     stock: 12,
     isFeatured: true,
     isBestSeller: true,
-    rating: 4.9,
-    reviewCount: 42,
+    rating: 5.0,
+    reviewCount: 3,
     reviews: [
-      { id: 'rev-1', userName: 'Sara T.', rating: 5, comment: 'The gold Tilet is absolutely breathtaking! Received so many compliments at my sister’s wedding.', createdAt: '2026-07-15' },
-      { id: 'rev-2', userName: 'Meron B.', rating: 5, comment: 'Authentic Menet cotton, so soft and elegant.', createdAt: '2026-07-20' }
+      { id: 'rev-1', userName: 'Sara Tadesse', rating: 5, comment: 'The gold Tilet is absolutely breathtaking! Received so many compliments at my sister’s wedding in Addis.', createdAt: '2026-07-15' },
+      { id: 'rev-2', userName: 'Meron Bekele', rating: 5, comment: 'Authentic Menet cotton, soft, elegant, and perfectly fitted.', createdAt: '2026-07-20' },
+      { id: 'rev-3', userName: 'Helen Gebre', rating: 5, comment: 'Stunning fit and craftsmanship. The gold thread shines so beautifully in person.', createdAt: '2026-07-28' }
     ]
   },
   {
@@ -80,10 +82,11 @@ export const SAMPLE_PRODUCTS: Product[] = [
     colors: ['White & Emerald/Gold', 'White & Crimson/Gold'],
     stock: 8,
     isFeatured: true,
-    rating: 4.8,
-    reviewCount: 29,
+    rating: 4.5,
+    reviewCount: 2,
     reviews: [
-      { id: 'rev-3', userName: 'Helen G.', rating: 5, comment: 'True Axumite embroidery quality. Highly recommend!', createdAt: '2026-06-11' }
+      { id: 'rev-4', userName: 'Helen Gebre', rating: 5, comment: 'True Axumite embroidery quality. Lightweight Netela shawl is wonderful!', createdAt: '2026-06-11' },
+      { id: 'rev-5', userName: 'Selam Woldemariam', rating: 4, comment: 'Beautiful emerald details along the border. Tailoring fits true to size.', createdAt: '2026-07-02' }
     ]
   },
   {
@@ -92,7 +95,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'gonder-imperial-tilet-kemis',
     description: 'Inspired by the royal courts of Gondar, this dress boasts wide woven Tilet borders along the sleeves and bottom skirt. Elegant silhouette with comfortable breathability.',
     price: 19200,
-    originalPrice: 21000,
     category: 'Habesha Kemis',
     region: 'Amhara',
     material: 'Handwoven Cotton & Metallic Gold Brocade',
@@ -106,8 +108,11 @@ export const SAMPLE_PRODUCTS: Product[] = [
     stock: 5,
     isBestSeller: true,
     rating: 5.0,
-    reviewCount: 38,
-    reviews: []
+    reviewCount: 2,
+    reviews: [
+      { id: 'rev-6', userName: 'Tigist Seifu', rating: 5, comment: 'Felt like royalty wearing this at our holiday gathering. Outstanding quality.', createdAt: '2026-06-25' },
+      { id: 'rev-7', userName: 'Eyerusalem M.', rating: 5, comment: 'Durable cotton weave and fast delivery to Bole.', createdAt: '2026-07-05' }
+    ]
   },
   {
     id: 'hb-004',
@@ -128,9 +133,11 @@ export const SAMPLE_PRODUCTS: Product[] = [
     stock: 14,
     isFeatured: true,
     isNewArrival: true,
-    rating: 4.9,
-    reviewCount: 21,
-    reviews: []
+    rating: 5.0,
+    reviewCount: 1,
+    reviews: [
+      { id: 'rev-8', userName: 'Hawwi Gudeta', rating: 5, comment: 'Vibrant Irreecha attire! The red, black, and white embroidery is so authentic.', createdAt: '2026-07-10' }
+    ]
   },
   {
     id: 'hb-005',
@@ -158,7 +165,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'harari-colorful-ge-gara-silk-kemis',
     description: 'A striking fusion of traditional Harari vibrant textiles and classic Habesha silhouette. Features rich crimson and gold embroidery influenced by ancient Harar architecture.',
     price: 21000,
-    originalPrice: 24000,
     category: 'Habesha Kemis',
     region: 'Harari',
     material: 'Silk Tilet & Fine Cotton Shemma',
@@ -240,7 +246,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'addis-elegance-meskel-special-dress',
     description: 'Modern luxury interpretation of the timeless Habesha Kemis. Features slim-fit tailoring with gold-leaf embroidered Tilet from neckline to ankle.',
     price: 19800,
-    originalPrice: 23000,
     category: 'Habesha Kemis',
     region: 'National Heritage',
     material: 'Menet Cotton & Metallic Gold Brocade',
@@ -265,7 +270,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'lalibela-embroidered-traditional-mens-suit',
     description: 'A complete 3-piece traditional suit (shirt, trousers, and embroidered kuta/shawl) crafted from thick, breathable Ethiopian cotton with regal gold collar embroidery.',
     price: 14500,
-    originalPrice: 16800,
     category: "Men's Traditional Wear",
     region: 'Amhara',
     material: 'Handwoven Heavy Cotton (Menet)',
@@ -350,7 +354,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'harari-cultural-velvet-embroidered-vest-and-tunic',
     description: 'A regal combination of a crisp white cotton traditional shirt paired with an intricately gold-embroidered Harari velvet waistcoat.',
     price: 17800,
-    originalPrice: 19500,
     category: "Men's Traditional Wear",
     region: 'Harari',
     material: 'Velvet & Handwoven Cotton',
@@ -432,7 +435,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'addis-groom-royal-koba-and-kuta-coat',
     description: 'A luxurious embroidered full-length traditional coat and matching trousers designed specifically for Ethiopian grooms and formal banquets.',
     price: 22500,
-    originalPrice: 25000,
     category: "Men's Traditional Wear",
     region: 'National Heritage',
     material: 'Heavy Silk Brocade & Menet Cotton',
@@ -457,7 +459,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'queen-of-sheba-bridal-habesha-gown-mels',
     description: 'The pinnacle of Ethiopian bridal couture for the Mels ceremony. Extravagant hand-woven Tilet covering the entire bodice and cascading train, crafted over 45 days by master artisans in Addis Ababa.',
     price: 36000,
-    originalPrice: 42000,
     category: 'Wedding Collection',
     region: 'National Heritage',
     material: 'Premium Menet Cotton, Heavy Silk Tilet & Gold Brocade',
@@ -483,7 +484,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'imperial-grooms-royal-velvet-cape-and-koba-suit',
     description: 'Regal groom ensemble including a gold-embroidered velvet ceremonial cape (Koba), matching tunic, trousers, and silk-hemmed kuta.',
     price: 31000,
-    originalPrice: 35000,
     category: 'Wedding Collection',
     region: 'National Heritage',
     material: 'Velvet, Gold Brocade & Menet Cotton',
@@ -525,7 +525,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'oromo-ceremonial-couples-wedding-attire-set',
     description: 'Matching luxury bridal gown and groom suit set celebrating traditional Oromo royal wedding aesthetics with rich red, black, and gold embroidery.',
     price: 52000,
-    originalPrice: 58000,
     category: 'Wedding Collection',
     region: 'Oromo',
     material: 'Premium Menet Cotton & Silk Tilet',
@@ -591,7 +590,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'little-abyssinia-girls-habesha-kemis',
     description: 'An adorable, soft, and breathable traditional Habesha dress for little girls. Features a comfortable elastic waist and bright gold Tilet embroidery.',
     price: 4800,
-    originalPrice: 5500,
     category: "Children's Wear",
     region: 'Amhara',
     material: 'Soft Ethiopian Cotton',
@@ -715,7 +713,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'axumite-24k-gold-plated-filigree-cross-necklace',
     description: 'Hand-crafted traditional Ethiopian cross necklace inspired by the ancient obelisks of Axum. Intricate filigree workmanship plated in rich 24K gold.',
     price: 6800,
-    originalPrice: 7500,
     category: 'Jewelry',
     region: 'Tigray',
     material: '24K Gold Plated Alloy',
@@ -842,7 +839,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'lalibela-extra-soft-handwoven-netela-scarf',
     description: 'The quintessential Ethiopian 2-layer white cotton Netela with a glimmering gold Tilet border. Essential for church, weddings, and evening elegance.',
     price: 3500,
-    originalPrice: 4200,
     category: 'Scarves',
     region: 'Amhara',
     material: '100% Handspun Ethiopian Cotton & Gold Thread',
@@ -946,7 +942,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'handcrafted-addis-leather-and-tilet-loafers',
     description: 'Premium full-grain Ethiopian leather slip-on loafers accented with authentic woven gold Tilet stripe across the vamp.',
     price: 6400,
-    originalPrice: 7200,
     category: 'Shoes',
     region: 'National Heritage',
     material: '100% Genuine Ethiopian Leather & Woven Tilet',
@@ -1032,7 +1027,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'gondar-heritage-tilet-and-leather-tote-bag',
     description: 'Spacious luxury tote bag made from supple Ethiopian sheepskin leather, inlaid with wide handwoven gold Tilet panels. Includes zippered interior compartment.',
     price: 7900,
-    originalPrice: 8800,
     category: 'Bags',
     region: 'Amhara',
     material: 'Genuine Ethiopian Leather & Woven Tilet',
@@ -1230,7 +1224,6 @@ export const SAMPLE_PRODUCTS: Product[] = [
     slug: 'addis-ababa-urban-contemporary-habesha-shirt',
     description: 'A modern tailored button-up shirt made from Ethiopian cotton with a sleek vertical gold Tilet stripe. Perfect for smart-casual and Friday cultural wear.',
     price: 6800,
-    originalPrice: 7900,
     category: "Men's Traditional Wear",
     region: 'National Heritage',
     material: '100% Handwoven Cotton',
@@ -1516,6 +1509,8 @@ export const SAMPLE_PRODUCTS: Product[] = [
     reviews: []
   }
 ];
+
+export const SAMPLE_PRODUCTS: Product[] = RAW_SAMPLE_PRODUCTS.map(normalizeProduct);
 
 export const REGIONS_LIST: Product['region'][] = [
   'Amhara',

@@ -23,7 +23,9 @@ export type RegionName =
 
 export interface ProductReview {
   id: string;
+  userId?: string;
   userName: string;
+  userEmail?: string;
   rating: number;
   comment: string;
   createdAt: string;
@@ -129,5 +131,16 @@ export interface User {
   fullName: string;
   phone?: string;
   role: 'USER' | 'ADMIN';
+  authProvider?: 'google' | 'email_password' | 'form' | 'demo';
+  signupMethod?: string;
   addresses: UserAddress[];
+  ratings?: Array<{
+    reviewId: string;
+    productId: string;
+    rating: number;
+    comment: string;
+    createdAt: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
 }

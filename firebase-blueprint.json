@@ -2,30 +2,40 @@
   "entities": {
     "users": {
       "title": "Users",
-      "description": "Registered customer and admin profiles",
-      "type": "object",
-      "properties": {
-        "uid": { "type": "string" },
-        "email": { "type": "string" },
-        "name": { "type": "string" },
-        "role": { "type": "string" },
-        "createdAt": { "type": "string" }
-      },
-      "required": ["uid", "email", "name"]
-    },
-    "products": {
-      "title": "Products & Inventory",
-      "description": "Habesha clothing catalog and inventory stock levels",
+      "description": "Registered customer and admin profiles signed up via form or Google",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "title": { "type": "string" },
-        "price": { "type": "number" },
-        "stockQuantity": { "type": "number" },
-        "inStock": { "type": "boolean" },
-        "category": { "type": "string" }
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "fullName": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string" },
+        "authProvider": { "type": "string" },
+        "signupMethod": { "type": "string" },
+        "cart": { "type": "array", "description": "User specific shopping bag items" },
+        "wishlist": { "type": "array", "description": "User specific favorite product IDs" },
+        "ratings": { "type": "array", "description": "User ratings and reviews history" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["title", "price", "stockQuantity", "category"]
+      "required": ["email", "fullName"]
+    },
+    "reviews": {
+      "title": "Product Reviews & Ratings",
+      "description": "User ratings and written feedback for garments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["productId", "rating", "comment"]
     },
     "orders": {
       "title": "Orders",

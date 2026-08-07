@@ -18,15 +18,15 @@ import {
   query,
   where,
   orderBy,
-  runTransaction
+  runTransaction,
+  onSnapshot
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase.js';
-import { Product, Order, User } from '../types/index.js';
-import { SAMPLE_PRODUCTS } from '../data/sampleProducts.js';
+import { Order, User, CartItem } from '../types/index.js';
+import { ExternalInventoryService } from './externalInventoryService.js';
 
 // Firebase Collections
 const USERS_COLLECTION = 'users';
-const PRODUCTS_COLLECTION = 'products';
 const ORDERS_COLLECTION = 'orders';
 
 // Utility to validate Ethiopian and international phone numbers
@@ -45,82 +45,7 @@ export const isValidPhone = (phone?: string): boolean => {
 };
 
 // -------------------------------------------------------------
-// 1. INVENTORY & PRODUCTS SERVICE (Firestore DB)
-// -------------------------------------------------------------
-export const FirestoreInventoryService = {
-  // Ensure default products exist in Firestore
-  async seedProductsIfEmpty(): Promise<Product[]> {
-    try {
-      const colRef = collection(db, PRODUCTS_COLLECTION);
-      const snapshot = await getDocs(colRef);
-
-      if (snapshot.empty) {
-        console.log('Seeding initial Habesha Threads inventory to Firebase Firestore...');
-        for (const prod of SAMPLE_PRODUCTS) {
-          const docRef = doc(db, PRODUCTS_COLLECTION, prod.id);
-          await setDoc(docRef, {
-            ...prod,
-            stock: prod.stock ?? 15,
-            updatedAt: new Date().toISOString()
-          });
-        }
-        return SAMPLE_PRODUCTS;
-      }
-
-      const productsList: Product[] = [];
-      snapshot.forEach(docSnap => {
-        productsList.push(docSnap.data() as Product);
-      });
-      return productsList;
-    } catch (error) {
-      console.warn('Firestore seed/fetch error, using fallback:', error);
-      return SAMPLE_PRODUCTS;
-    }
-  },
-
-  async getProducts(): Promise<Product[]> {
-    try {
-      const colRef = collection(db, PRODUCTS_COLLECTION);
-      const snapshot = await getDocs(colRef);
-      if (snapshot.empty) {
-        return this.seedProductsIfEmpty();
-      }
-      const products: Product[] = [];
-      snapshot.forEach(docSnap => {
-        products.push(docSnap.data() as Product);
-      });
-      return products;
-    } catch (err) {
-      console.error('Error fetching products from Firestore:', err);
-      return SAMPLE_PRODUCTS;
-    }
-  },
-
-  async saveProduct(product: Product): Promise<Product> {
-    const docRef = doc(db, PRODUCTS_COLLECTION, product.id);
-    await setDoc(docRef, {
-      ...product,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-    return product;
-  },
-
-  async updateStock(productId: string, newStockQuantity: number): Promise<void> {
-    const docRef = doc(db, PRODUCTS_COLLECTION, productId);
-    await updateDoc(docRef, {
-      stock: newStockQuantity,
-      updatedAt: new Date().toISOString()
-    });
-  },
-
-  async deleteProduct(productId: string): Promise<void> {
-    const docRef = doc(db, PRODUCTS_COLLECTION, productId);
-    await deleteDoc(docRef);
-  }
-};
-
-// -------------------------------------------------------------
-// 2. ORDERS SERVICE (Firestore DB)
+// 1. ORDERS SERVICE (Firestore DB)
 // -------------------------------------------------------------
 export const FirestoreOrderService = {
   async createOrder(order: Order): Promise<Order> {
@@ -131,30 +56,14 @@ export const FirestoreOrderService = {
         createdAt: order.createdAt || new Date().toISOString()
       });
 
-      // Deduct inventory stock in Firestore inside transaction/update & in-memory fallback
-      for (const item of order.items) {
-        try {
-          const targetId = item.productId || (item as any).product?.id;
-          if (!targetId) continue;
-          
-          // Fallback in-memory SAMPLE_PRODUCTS update
-          const sampleIdx = SAMPLE_PRODUCTS.findIndex(p => p.id === targetId);
-          if (sampleIdx !== -1) {
-            SAMPLE_PRODUCTS[sampleIdx].stock = Math.max(0, (SAMPLE_PRODUCTS[sampleIdx].stock || 15) - item.quantity);
-          }
+      // Notify Central Inventory System of stock reservation
+      const orderItemsToReserve = order.items.map(item => ({
+        productId: item.productId || (item as any).product?.id,
+        quantity: item.quantity
+      })).filter(item => Boolean(item.productId));
 
-          const prodRef = doc(db, PRODUCTS_COLLECTION, targetId);
-          const prodSnap = await getDoc(prodRef);
-          if (prodSnap.exists()) {
-            const currentStock = prodSnap.data().stock ?? 15;
-            const updatedStock = Math.max(0, currentStock - item.quantity);
-            await updateDoc(prodRef, {
-              stock: updatedStock
-            });
-          }
-        } catch (e) {
-          console.warn('Inventory stock update error for order item:', item, e);
-        }
+      if (orderItemsToReserve.length > 0) {
+        await ExternalInventoryService.notifyOrderPlaced(orderItemsToReserve);
       }
 
       return order;
@@ -167,18 +76,34 @@ export const FirestoreOrderService = {
   async getOrders(userId?: string): Promise<Order[]> {
     try {
       const colRef = collection(db, ORDERS_COLLECTION);
-      let q = query(colRef);
+      let snapshot;
+      
+      // If a specific real user ID is provided, query by userId first
       if (userId && userId !== 'guest' && userId !== 'user-customer' && userId !== 'user-admin') {
-        q = query(colRef, where('userId', '==', userId));
+        try {
+          const q = query(colRef, where('userId', '==', userId));
+          snapshot = await getDocs(q);
+        } catch {
+          snapshot = await getDocs(colRef);
+        }
+      } else {
+        snapshot = await getDocs(colRef);
       }
-      const snapshot = await getDocs(q);
+
       const ordersList: Order[] = [];
       snapshot.forEach(docSnap => {
         ordersList.push(docSnap.data() as Order);
       });
-      return ordersList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // If user-customer or specific userId is requested, filter in memory
+      let result = ordersList;
+      if (userId && userId !== 'user-admin') {
+        result = ordersList.filter(o => o.userId === userId || o.customerEmail?.toLowerCase() === userId.toLowerCase());
+      }
+
+      return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     } catch (err) {
-      console.error('Error fetching orders from Firestore:', err);
+      console.warn('Firestore getOrders warning:', err);
       return [];
     }
   },
@@ -196,6 +121,27 @@ export const FirestoreOrderService = {
 // 3. USER AUTHENTICATION & USERS COLLECTION (Firebase Auth + Firestore DB)
 // -------------------------------------------------------------
 export const FirebaseAuthService = {
+  async saveUserProfile(user: User, provider: 'email_password' | 'google' | 'form' = 'email_password'): Promise<User> {
+    const userDocRef = doc(db, USERS_COLLECTION, user.id);
+    const existingSnap = await getDoc(userDocRef);
+    const existingData = existingSnap.exists() ? existingSnap.data() : {};
+
+    const profileToSave: User = {
+      ...existingData,
+      ...user,
+      authProvider: provider,
+      signupMethod: provider === 'google' ? 'GOOGLE_POPUP' : 'EMAIL_FORM',
+      updatedAt: new Date().toISOString()
+    };
+
+    await setDoc(userDocRef, {
+      ...profileToSave,
+      createdAt: existingData.createdAt || new Date().toISOString()
+    }, { merge: true });
+
+    return profileToSave;
+  },
+
   async registerWithEmail(email: string, pass: string, fullName: string, phone: string): Promise<User> {
     const userCred = await createUserWithEmailAndPassword(auth, email, pass);
     const fbUser = userCred.user;
@@ -205,8 +151,10 @@ export const FirebaseAuthService = {
       id: fbUser.uid,
       email: fbUser.email || email,
       fullName: fullName || email.split('@')[0],
-      phone: phone || '+251 911 000 000',
+      phone: phone || '',
       role,
+      authProvider: 'email_password',
+      signupMethod: 'EMAIL_FORM',
       addresses: [
         {
           id: 'addr-1',
@@ -221,7 +169,8 @@ export const FirebaseAuthService = {
     // Save profile to Firestore users collection
     await setDoc(doc(db, USERS_COLLECTION, fbUser.uid), {
       ...userProfile,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
 
     return userProfile;
@@ -236,7 +185,11 @@ export const FirebaseAuthService = {
     const docSnap = await getDoc(userDocRef);
 
     if (docSnap.exists()) {
-      return docSnap.data() as User;
+      const data = docSnap.data() as User;
+      if (!data.authProvider) {
+        await updateDoc(userDocRef, { authProvider: 'email_password', signupMethod: 'EMAIL_FORM' }).catch(() => {});
+      }
+      return { ...data, authProvider: data.authProvider || 'email_password' };
     }
 
     const role: 'ADMIN' | 'USER' = email.toLowerCase().includes('admin') ? 'ADMIN' : 'USER';
@@ -246,12 +199,15 @@ export const FirebaseAuthService = {
       fullName: fbUser.displayName || email.split('@')[0],
       phone: '',
       role,
+      authProvider: 'email_password',
+      signupMethod: 'EMAIL_FORM',
       addresses: []
     };
 
     await setDoc(userDocRef, {
       ...fallbackUser,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
 
     return fallbackUser;
@@ -266,7 +222,8 @@ export const FirebaseAuthService = {
     const docSnap = await getDoc(userDocRef);
 
     if (docSnap.exists()) {
-      return docSnap.data() as User;
+      const data = docSnap.data() as User;
+      return { ...data, authProvider: 'google' };
     }
 
     const role: 'ADMIN' | 'USER' = (fbUser.email || '').toLowerCase().includes('admin') ? 'ADMIN' : 'USER';
@@ -276,12 +233,15 @@ export const FirebaseAuthService = {
       fullName: fbUser.displayName || 'Habesha Customer',
       phone: fbUser.phoneNumber || '',
       role,
+      authProvider: 'google',
+      signupMethod: 'GOOGLE_POPUP',
       addresses: []
     };
 
     await setDoc(userDocRef, {
       ...googleUser,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     });
 
     return googleUser;
@@ -317,6 +277,8 @@ export const FirebaseAuthService = {
             fullName: fbUser.displayName || 'Habesha User',
             phone: '',
             role: (fbUser.email || '').toLowerCase().includes('admin') ? 'ADMIN' : 'USER',
+            authProvider: fbUser.providerData.some(p => p.providerId === 'google.com') ? 'google' : 'email_password',
+            signupMethod: fbUser.providerData.some(p => p.providerId === 'google.com') ? 'GOOGLE_POPUP' : 'EMAIL_FORM',
             addresses: []
           });
         }
@@ -326,3 +288,161 @@ export const FirebaseAuthService = {
     });
   }
 };
+
+// -------------------------------------------------------------
+// 4. USER BAG & FAVORITES DATA SERVICE (Firestore DB)
+// -------------------------------------------------------------
+export const FirestoreUserDataService = {
+  async getUserData(userId: string): Promise<{ cart: CartItem[]; wishlist: string[] }> {
+    if (!userId) return { cart: [], wishlist: [] };
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, userId);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+          cart: Array.isArray(data.cart) ? data.cart : [],
+          wishlist: Array.isArray(data.wishlist) ? data.wishlist : (Array.isArray(data.wishlistIds) ? data.wishlistIds : [])
+        };
+      }
+      return { cart: [], wishlist: [] };
+    } catch (err) {
+      console.warn('Error fetching user bag/favorites from Firestore:', err);
+      return { cart: [], wishlist: [] };
+    }
+  },
+
+  async saveUserCart(userId: string, cart: CartItem[]): Promise<void> {
+    if (!userId) return;
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, userId);
+      await setDoc(userDocRef, {
+        cart,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.warn('Error saving user cart to Firestore:', err);
+    }
+  },
+
+  async saveUserWishlist(userId: string, wishlist: string[]): Promise<void> {
+    if (!userId) return;
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, userId);
+      await setDoc(userDocRef, {
+        wishlist,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.warn('Error saving user wishlist to Firestore:', err);
+    }
+  },
+
+  subscribeToUserData(userId: string, onUpdate: (data: { cart: CartItem[]; wishlist: string[] }) => void) {
+    if (!userId) return () => {};
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    return onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        onUpdate({
+          cart: Array.isArray(data.cart) ? data.cart : [],
+          wishlist: Array.isArray(data.wishlist) ? data.wishlist : (Array.isArray(data.wishlistIds) ? data.wishlistIds : [])
+        });
+      }
+    }, (error) => {
+      console.warn('UserData snapshot notice:', error);
+    });
+  }
+};
+
+// -------------------------------------------------------------
+// 5. PRODUCT REVIEWS & USER RATINGS SERVICE (Firestore DB)
+// -------------------------------------------------------------
+export const FirestoreReviewService = {
+  async addReview(reviewData: {
+    productId: string;
+    userId: string;
+    userName: string;
+    userEmail?: string;
+    rating: number;
+    comment: string;
+  }) {
+    try {
+      const reviewColRef = collection(db, 'reviews');
+      const reviewDocRef = doc(reviewColRef);
+      const newReview = {
+        id: reviewDocRef.id,
+        productId: reviewData.productId,
+        userId: reviewData.userId || 'anonymous',
+        userName: reviewData.userName || 'Anonymous Habesha',
+        userEmail: reviewData.userEmail || '',
+        rating: Number(reviewData.rating),
+        comment: reviewData.comment,
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+
+      // 1. Store individual review in 'reviews' collection
+      await setDoc(reviewDocRef, newReview);
+
+      // 2. Fetch all reviews for product to calculate average rating
+      const q = query(collection(db, 'reviews'), where('productId', '==', reviewData.productId));
+      const snap = await getDocs(q);
+      const reviewsList: any[] = [];
+      snap.forEach(d => reviewsList.push(d.data()));
+
+      const reviewCount = reviewsList.length;
+      const avgRating = reviewCount > 0
+        ? Number((reviewsList.reduce((acc, r) => acc + Number(r.rating || 5), 0) / reviewCount).toFixed(1))
+        : Number(reviewData.rating);
+
+      // 3. Update user profile document in Firestore with user rating history
+      if (reviewData.userId && reviewData.userId !== 'anonymous') {
+        const userDocRef = doc(db, USERS_COLLECTION, reviewData.userId);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          const userRatings = Array.isArray(userData.ratings) ? userData.ratings : [];
+          userRatings.unshift({
+            reviewId: newReview.id,
+            productId: reviewData.productId,
+            rating: newReview.rating,
+            comment: newReview.comment,
+            createdAt: newReview.createdAt
+          });
+          await updateDoc(userDocRef, {
+            ratings: userRatings,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+
+      return newReview;
+    } catch (err) {
+      console.warn('Firestore review storage notice:', err);
+      return {
+        id: `rev-${Date.now()}`,
+        productId: reviewData.productId,
+        userId: reviewData.userId,
+        userName: reviewData.userName,
+        userEmail: reviewData.userEmail,
+        rating: Number(reviewData.rating),
+        comment: reviewData.comment,
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+    }
+  },
+
+  async getProductReviews(productId: string) {
+    try {
+      const q = query(collection(db, 'reviews'), where('productId', '==', productId));
+      const snap = await getDocs(q);
+      const reviewsList: any[] = [];
+      snap.forEach(d => reviewsList.push(d.data()));
+      return reviewsList;
+    } catch (err) {
+      console.warn('Firestore getProductReviews notice:', err);
+      return [];
+    }
+  }
+};
+

@@ -2,11 +2,11 @@
 
 @layer base {
   :root {
-    --bg-main: #FCFBFA;
+    --bg-main: #FFFFFF;
     --bg-card: #FFFFFF;
-    --bg-elevated: #F9F7F4;
+    --bg-elevated: #F8F7F4;
     --text-main: #1A1A1A;
-    --text-muted: #6B7280;
+    --text-muted: #4B5563;
     --border-color: #E5E1DA;
   }
 

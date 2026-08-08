@@ -15,7 +15,8 @@ import {
   Truck,
   Sparkles,
   ChevronRight,
-  PackageCheck
+  PackageCheck,
+  LogOut
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -24,6 +25,7 @@ export const Navbar: React.FC = () => {
     wishlistIds,
     setIsCartOpen,
     user,
+    logout,
     setIsAuthModalOpen,
     currencyMode,
     setCurrencyMode,
@@ -54,7 +56,7 @@ export const Navbar: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <header className="sticky top-0 z-40 w-full shrink-0 shadow-xs border-b border-[#EBE7DF] dark:border-[#2A2A2A] transition-colors duration-200">
+    <header className="sticky top-0 z-40 w-full shrink-0 bg-white dark:bg-[#141414] shadow-xs border-b border-[#EBE7DF] dark:border-[#2A2A2A] transition-colors duration-200">
       {/* Top Utility Announcement Bar */}
       <div className="bg-white dark:bg-[#0D0D0D] text-[#1A1A1A] dark:text-white text-[10px] md:text-[11px] py-1.5 px-4 sm:px-8 flex items-center justify-between font-medium tracking-wider border-b border-[#EBE7DF] dark:border-[#1F1F1F]">
         <div className="hidden sm:flex items-center gap-2 text-gray-700 dark:text-gray-300">
@@ -211,7 +213,7 @@ export const Navbar: React.FC = () => {
                 placeholder="Search kemis, region, tilet..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-36 sm:w-56 md:w-64 pl-3 pr-8 py-1.5 text-xs bg-[#FCFBFA] dark:bg-[#222] border border-[#E5E1DA] dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] text-[#1A1A1A] dark:text-white placeholder-gray-400"
+                className="w-36 sm:w-56 md:w-64 pl-3 pr-8 py-1.5 text-xs bg-white dark:bg-[#222] border border-[#E5E1DA] dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] text-[#1A1A1A] dark:text-white placeholder-gray-400"
               />
               <button
                 type="button"
@@ -309,7 +311,7 @@ export const Navbar: React.FC = () => {
           {/* Drawer Content Container */}
           <div className="relative ml-auto w-full max-w-xs sm:max-w-sm h-full bg-white dark:bg-[#181818] text-[#1A1A1A] dark:text-white shadow-2xl flex flex-col justify-between overflow-y-auto z-10 animate-in slide-in-from-right duration-250">
             {/* Drawer Top Bar */}
-            <div className="p-5 border-b border-[#E5E1DA] dark:border-[#2D2D2D] flex items-center justify-between bg-[#FCFBFA] dark:bg-[#141414]">
+            <div className="p-5 border-b border-[#E5E1DA] dark:border-[#2D2D2D] flex items-center justify-between bg-white dark:bg-[#141414]">
               <span className="text-lg font-serif italic text-[#C5A059] font-bold">
                 Lelisa Threads
               </span>
@@ -331,7 +333,7 @@ export const Navbar: React.FC = () => {
                   placeholder="Search Habesha Kemis, Tilet..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 text-xs bg-[#FCFBFA] dark:bg-[#222] border border-[#E5E1DA] dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] text-[#1A1A1A] dark:text-white"
+                  className="w-full pl-9 pr-4 py-2.5 text-xs bg-white dark:bg-[#222] border border-[#E5E1DA] dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] text-[#1A1A1A] dark:text-white"
                 />
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
               </form>
@@ -417,20 +419,32 @@ export const Navbar: React.FC = () => {
               {/* Account Quick Options */}
               <div className="pt-4 border-t border-[#E5E1DA] dark:border-[#2D2D2D]">
                 {user ? (
-                  <div className="bg-[#FCFBFA] dark:bg-[#222] p-3 rounded-sm border border-[#E5E1DA] dark:border-[#333] space-y-2">
+                  <div className="bg-gray-50 dark:bg-[#222] p-3 rounded-sm border border-[#E5E1DA] dark:border-[#333] space-y-2">
                     <div className="text-xs">
                       <p className="font-bold text-[#1A1A1A] dark:text-white">{user.fullName}</p>
                       <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
                     </div>
-                    <button
-                      onClick={() => {
-                        setIsMobileMenuOpen(false);
-                        navigate('/dashboard');
-                      }}
-                      className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[10px] uppercase tracking-widest font-bold py-2 rounded-xs transition-colors"
-                    >
-                      My Orders & Account
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          navigate('/dashboard');
+                        }}
+                        className="flex-1 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[10px] uppercase tracking-widest font-bold py-2 rounded-xs transition-colors"
+                      >
+                        My Orders
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          logout();
+                        }}
+                        className="px-3 bg-gray-100 hover:bg-red-50 text-black hover:text-red-600 border border-gray-300 text-[10px] uppercase tracking-widest font-bold py-2 rounded-xs transition-colors flex items-center gap-1"
+                      >
+                        <LogOut className="w-3 h-3 text-black" />
+                        Sign Out
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <button
@@ -447,7 +461,7 @@ export const Navbar: React.FC = () => {
             </div>
 
             {/* Mobile Drawer Footer */}
-            <div className="p-4 bg-[#FCFBFA] dark:bg-[#121212] border-t border-[#E5E1DA] dark:border-[#2D2D2D] text-[10px] text-gray-500 flex justify-between items-center">
+            <div className="p-4 bg-white dark:bg-[#121212] border-t border-[#E5E1DA] dark:border-[#2D2D2D] text-[10px] text-gray-500 flex justify-between items-center">
               <span>Currency: <strong className="text-[#C5A059]">{currencyMode}</strong></span>
               <span>Lang: <strong className="text-[#C5A059]">{language}</strong></span>
             </div>

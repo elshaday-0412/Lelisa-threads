@@ -199,9 +199,9 @@ export const UserDashboard: React.FC = () => {
 
           <button
             onClick={logout}
-            className="px-5 py-2.5 border border-[#E5E1DA] hover:border-red-500 hover:text-red-600 text-xs uppercase tracking-widest font-semibold rounded-sm transition-colors flex items-center gap-2"
+            className="px-5 py-2.5 bg-white text-black border border-gray-300 hover:border-red-500 hover:bg-red-50 hover:text-red-600 text-xs uppercase tracking-widest font-bold rounded-sm transition-colors flex items-center gap-2 shadow-xs"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-3.5 h-3.5 text-black" />
             Sign Out
           </button>
         </div>
@@ -447,6 +447,16 @@ export const UserDashboard: React.FC = () => {
                 <div className="flex justify-between py-2">
                   <span className="text-gray-500 font-medium">Member Role</span>
                   <span className="font-semibold text-[#C5A059]">{user.role}</span>
+                </div>
+                <div className="pt-4 border-t border-gray-100 mt-4">
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="w-full px-4 py-2.5 bg-gray-100 hover:bg-red-50 text-black hover:text-red-600 border border-gray-300 hover:border-red-300 text-xs uppercase tracking-widest font-bold rounded-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4 text-black" />
+                    Sign Out
+                  </button>
                 </div>
               </div>
             </div>

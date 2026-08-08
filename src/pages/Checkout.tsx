@@ -6,7 +6,7 @@ import { ShieldCheck, Truck, CheckCircle2, Lock, ArrowRight, Smartphone, Buildin
 import { Order, PaymentReceipt } from '../types/index.js';
 
 export const Checkout: React.FC = () => {
-  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, requireAuth, t } = useApp();
+  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, requireAuth } = useApp();
   const navigate = useNavigate();
 
   const [customerName, setCustomerName] = useState(user ? user.fullName : '');
@@ -17,17 +17,9 @@ export const Checkout: React.FC = () => {
   );
   const [city, setCity] = useState(user?.addresses?.[0]?.city || 'Addis Ababa');
   const [region, setRegion] = useState(user?.addresses?.[0]?.region || 'Addis Ababa');
-  const [paymentMethod, setPaymentMethod] = useState<'TELEBIRR' | 'CBE_BIRR' | 'CHAPA' | 'STRIPE_CARD' | 'DIASPORA_CARD' | 'CASH_ON_DELIVERY'>('TELEBIRR');
+  const [paymentMethod, setPaymentMethod] = useState<'CHAPA' | 'CASH_ON_DELIVERY'>('CHAPA');
 
-  // Payment gateway form state
-  const [mobileWalletPhone, setMobileWalletPhone] = useState(user?.phone || '');
-  const [otpPin, setOtpPin] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExp, setCardExp] = useState('08/28');
-  const [cardCvc, setCardCvc] = useState('456');
-  const [paymentReceipt, setPaymentReceipt] = useState<PaymentReceipt | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
 
@@ -36,10 +28,7 @@ export const Checkout: React.FC = () => {
     if (user) {
       if (user.fullName) setCustomerName(user.fullName);
       if (user.email) setCustomerEmail(user.email);
-      if (user.phone) {
-        setCustomerPhone(user.phone);
-        setMobileWalletPhone(user.phone);
-      }
+      if (user.phone) setCustomerPhone(user.phone);
       if (user.addresses && user.addresses.length > 0) {
         if (user.addresses[0].street) setShippingAddress(user.addresses[0].street);
         if (user.addresses[0].city) setCity(user.addresses[0].city);
@@ -50,10 +39,6 @@ export const Checkout: React.FC = () => {
 
   const handleCustomerPhoneChange = (val: string) => {
     setCustomerPhone(val);
-    // Automatically keep mobile wallet phone in sync if not manually detached
-    if (!mobileWalletPhone || mobileWalletPhone === customerPhone || mobileWalletPhone === user?.phone) {
-      setMobileWalletPhone(val);
-    }
   };
 
   const shippingCost = cartSubtotal > 10000 || cartSubtotal === 0 ? 0 : 350;
@@ -88,82 +73,80 @@ export const Checkout: React.FC = () => {
       setIsSubmitting(true);
 
       try {
-        let receipt: PaymentReceipt | null = null;
+        if (paymentMethod === 'CHAPA') {
+          // Initialize Chapa Hosted Checkout
+          const resChapa = await PaymentService.createChapaCheckout({
+            userId: user ? user.id : 'guest',
+            customerName,
+            customerEmail,
+            customerPhone,
+            shippingAddress,
+            city,
+            region,
+            items: cart.map((item, idx) => ({
+              id: `item-${Date.now()}-${idx}`,
+              productId: item.product.id,
+              name: item.product.name,
+              price: item.product.price,
+              quantity: item.quantity,
+              size: item.selectedSize,
+              color: item.selectedColor,
+              image: item.product.images[0]
+            })),
+            subtotal: cartSubtotal,
+            shippingCost,
+            totalAmount
+          });
 
-        // 1. If electronic payment method, invoke real payment processing API
-        if (paymentMethod !== 'CASH_ON_DELIVERY') {
-          try {
-            const resPayment = await PaymentService.processPayment({
-              amount: totalAmount,
-              currency: 'ETB',
-              paymentMethod,
-              customerEmail,
-              customerName,
-              customerPhone,
-              mobileNumber: mobileWalletPhone,
-              otpPin,
-              cardNumber,
-              cardExp,
-              cardCvc
-            });
-
-            if (!resPayment.success || !resPayment.receipt) {
-              setPaymentError(resPayment.message || 'Payment authorization failed.');
-              showToast('Payment Declined', resPayment.message || 'Please check your payment details and try again.', 'error');
-              setIsSubmitting(false);
-              return;
-            }
-
-            receipt = resPayment.receipt;
-            setPaymentReceipt(receipt);
-            showToast('Payment Authorized!', `Gateway reference ${receipt.transactionRef} confirmed.`, 'success');
-          } catch (paymentErr: any) {
-            const errorMsg = paymentErr.response?.data?.error || 'Unable to connect to payment gateway. Please verify your OTP or Card credentials.';
+          if (resChapa.success && resChapa.checkoutUrl) {
+            showToast('Redirecting...', 'Connecting to Chapa Secure Hosted Payment Gateway...', 'info');
+            window.location.href = resChapa.checkoutUrl;
+            return;
+          } else {
+            const errorMsg = resChapa.error || 'Failed to initialize Chapa Payment Session.';
             setPaymentError(errorMsg);
-            showToast('Payment Gateway Error', errorMsg, 'error');
+            showToast('Payment Initialization Error', errorMsg, 'error');
             setIsSubmitting(false);
             return;
           }
+        } else {
+          // Cash on Delivery Order
+          const payload = {
+            userId: user ? user.id : 'guest',
+            customerName,
+            customerEmail,
+            customerPhone,
+            shippingAddress,
+            city,
+            region,
+            paymentMethod: 'CASH_ON_DELIVERY',
+            items: cart.map((item, idx) => ({
+              id: `item-${Date.now()}-${idx}`,
+              productId: item.product.id,
+              name: item.product.name,
+              price: item.product.price,
+              quantity: item.quantity,
+              size: item.selectedSize,
+              color: item.selectedColor,
+              image: item.product.images[0]
+            })),
+            subtotal: cartSubtotal,
+            shippingCost,
+            totalAmount,
+            isPaid: false
+          };
+
+          const resOrder = await OrderService.createOrder(payload);
+          setConfirmedOrder(resOrder);
+          clearCart();
+          showToast('Order Placed Successfully!', `Your order ${resOrder.orderNumber} is confirmed.`, 'success');
+          window.scrollTo(0, 0);
         }
-
-        // 2. Submit Order with Verified Payment Metadata
-        const payload = {
-          userId: user ? user.id : 'guest',
-          customerName,
-          customerEmail,
-          customerPhone,
-          shippingAddress,
-          city,
-          region,
-          paymentMethod,
-          items: cart.map((item, idx) => ({
-            id: `item-${Date.now()}-${idx}`,
-            productId: item.product.id,
-            name: item.product.name,
-            price: item.product.price,
-            quantity: item.quantity,
-            size: item.selectedSize,
-            color: item.selectedColor,
-            image: item.product.images[0]
-          })),
-          subtotal: cartSubtotal,
-          shippingCost,
-          totalAmount,
-          isPaid: paymentMethod !== 'CASH_ON_DELIVERY',
-          transactionRef: receipt?.transactionRef,
-          paymentTimestamp: receipt?.timestamp,
-          paymentGatewayResponse: receipt?.gatewayDetails.authCode,
-          cardLastFour: receipt?.gatewayDetails.cardLastFour,
-          mobileWalletPhone: receipt?.gatewayDetails.mobileNumber
-        };
-
-        const resOrder = await OrderService.createOrder(payload);
-        setConfirmedOrder(resOrder);
-        clearCart();
-        showToast('Order Placed Successfully!', `Your order ${resOrder.orderNumber} is confirmed.`, 'success');
-        window.scrollTo(0, 0);
-      } catch (err) {
-        showToast('Order Error', 'There was a problem placing your order. Please try again.', 'error');
+      } catch (err: any) {
+        console.error('Checkout error:', err);
+        const errMessage = err.response?.data?.error || err.message || 'There was a problem placing your order. Please try again.';
+        setPaymentError(errMessage);
+        showToast('Order Error', errMessage, 'error');
       } finally {
         setIsSubmitting(false);
       }
@@ -220,13 +203,13 @@ export const Checkout: React.FC = () => {
               <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
                 <span className="text-gray-500">Transaction Reference</span>
                 <span className="font-mono font-bold text-[#1A1A1A]">
-                  {confirmedOrder.transactionRef || paymentReceipt?.transactionRef || 'COD-OFFLINE'}
+                  {confirmedOrder.transactionRef || 'COD-OFFLINE'}
                 </span>
               </div>
               <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
                 <span className="text-gray-500">Authorization Code</span>
                 <span className="font-mono font-bold text-green-700">
-                  {confirmedOrder.paymentGatewayResponse || paymentReceipt?.gatewayDetails.authCode || 'APPROVED'}
+                  {confirmedOrder.paymentGatewayResponse || 'APPROVED'}
                 </span>
               </div>
               {confirmedOrder.cardLastFour && (
@@ -383,112 +366,44 @@ export const Checkout: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Ethiopian & International Payments */}
+            {/* 2. Payment Options: Chapa Online Gateway & Cash on Delivery */}
             <div className="bg-white p-6 md:p-8 border border-[#E5E1DA] rounded-sm">
               <h2 className="text-xl font-serif text-[#1A1A1A] font-light mb-6 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-[#1A1A1A] text-white text-xs flex items-center justify-center font-sans font-bold">2</span>
                 Payment Gateway &amp; Billing
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-                <div
-                  onClick={() => { setPaymentMethod('TELEBIRR'); setPaymentError(null); }}
-                  className={`p-3.5 rounded-sm border-2 cursor-pointer transition-all flex items-start gap-2.5 ${
-                    paymentMethod === 'TELEBIRR'
-                      ? 'border-[#C5A059] bg-[#FCFBFA]'
-                      : 'border-[#E5E1DA] hover:border-gray-400'
-                  }`}
-                >
-                  <Smartphone className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="text-xs font-bold text-[#1A1A1A]">Telebirr Instant</h3>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Ethio Telecom SMS OTP
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  onClick={() => { setPaymentMethod('CBE_BIRR'); setPaymentError(null); }}
-                  className={`p-3.5 rounded-sm border-2 cursor-pointer transition-all flex items-start gap-2.5 ${
-                    paymentMethod === 'CBE_BIRR'
-                      ? 'border-[#C5A059] bg-[#FCFBFA]'
-                      : 'border-[#E5E1DA] hover:border-gray-400'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="text-xs font-bold text-[#1A1A1A]">CBE Birr</h3>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Commercial Bank Pay
-                    </p>
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div
                   onClick={() => { setPaymentMethod('CHAPA'); setPaymentError(null); }}
-                  className={`p-3.5 rounded-sm border-2 cursor-pointer transition-all flex items-start gap-2.5 ${
+                  className={`p-4 rounded-sm border-2 cursor-pointer transition-all flex items-start gap-3 ${
                     paymentMethod === 'CHAPA'
                       ? 'border-[#C5A059] bg-[#FCFBFA]'
                       : 'border-[#E5E1DA] hover:border-gray-400'
                   }`}
                 >
-                  <CreditCard className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
+                  <CreditCard className="w-5 h-5 text-[#C5A059] shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="text-xs font-bold text-[#1A1A1A]">Chapa Gateway</h3>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Local Bank / Telebirr
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  onClick={() => { setPaymentMethod('STRIPE_CARD'); setPaymentError(null); }}
-                  className={`p-3.5 rounded-sm border-2 cursor-pointer transition-all flex items-start gap-2.5 ${
-                    paymentMethod === 'STRIPE_CARD'
-                      ? 'border-[#C5A059] bg-[#FCFBFA]'
-                      : 'border-[#E5E1DA] hover:border-gray-400'
-                  }`}
-                >
-                  <Globe className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="text-xs font-bold text-[#1A1A1A]">Stripe Card (Intl)</h3>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Visa • Mastercard • Amex
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  onClick={() => { setPaymentMethod('DIASPORA_CARD'); setPaymentError(null); }}
-                  className={`p-3.5 rounded-sm border-2 cursor-pointer transition-all flex items-start gap-2.5 ${
-                    paymentMethod === 'DIASPORA_CARD'
-                      ? 'border-[#C5A059] bg-[#FCFBFA]'
-                      : 'border-[#E5E1DA] hover:border-gray-400'
-                  }`}
-                >
-                  <CreditCard className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="text-xs font-bold text-[#1A1A1A]">Diaspora Express</h3>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      USD / EUR / GBP Cards
+                    <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Chapa Secure Checkout</h3>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      Telebirr • CBE Birr • Awash Birr • Visa / Mastercard
                     </p>
                   </div>
                 </div>
 
                 <div
                   onClick={() => { setPaymentMethod('CASH_ON_DELIVERY'); setPaymentError(null); }}
-                  className={`p-3.5 rounded-sm border-2 cursor-pointer transition-all flex items-start gap-2.5 ${
+                  className={`p-4 rounded-sm border-2 cursor-pointer transition-all flex items-start gap-3 ${
                     paymentMethod === 'CASH_ON_DELIVERY'
                       ? 'border-[#C5A059] bg-[#FCFBFA]'
                       : 'border-[#E5E1DA] hover:border-gray-400'
                   }`}
                 >
-                  <Truck className="w-4 h-4 text-[#C5A059] shrink-0 mt-0.5" />
+                  <Truck className="w-5 h-5 text-[#C5A059] shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="text-xs font-bold text-[#1A1A1A]">Cash on Delivery</h3>
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      Addis Ababa Only
+                    <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Cash on Delivery</h3>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      Pay Cash or Telebirr upon doorstep delivery (Addis Ababa)
                     </p>
                   </div>
                 </div>
@@ -502,132 +417,23 @@ export const Checkout: React.FC = () => {
                 </div>
               )}
 
-              {/* Interactive Gateway Form for Electronic Payments */}
-              {(paymentMethod === 'TELEBIRR' || paymentMethod === 'CBE_BIRR') && (
-                <div className="bg-[#FCFBFA] p-5 border border-[#E5E1DA] rounded-sm space-y-4 animate-in fade-in duration-300">
-                  <div className="flex justify-between items-center pb-2 border-b border-[#E5E1DA]">
-                    <span className="text-xs font-bold text-[#1A1A1A]">
-                      {paymentMethod === 'TELEBIRR' ? 'Ethio Telecom Telebirr Authorization' : 'CBE Birr Direct Mobile Pay'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileWalletPhone(user?.phone || customerPhone || '0911234567');
-                        setOtpPin('4829');
-                      }}
-                      className="text-[10px] uppercase tracking-wider bg-[#C5A059]/15 text-[#C5A059] font-bold px-2.5 py-1 rounded-sm hover:bg-[#C5A059]/25 transition-colors"
-                    >
-                      ⚡ Autofill Test OTP (4829)
-                    </button>
+              {/* Gateway Explanations */}
+              {paymentMethod === 'CHAPA' && (
+                <div className="bg-[#FCFBFA] p-5 border border-[#E5E1DA] rounded-sm space-y-2 animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2 pb-2 border-b border-[#E5E1DA]">
+                    <ShieldCheck className="w-4 h-4 text-green-600" />
+                    <span className="text-xs font-bold text-[#1A1A1A]">Chapa Financial Technologies Hosted Checkout</span>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
-                        Registered Mobile Number
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="e.g. 0911234567"
-                        value={mobileWalletPhone}
-                        onChange={e => setMobileWalletPhone(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
-                        4-Digit SMS OTP / PIN
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={6}
-                        placeholder="Enter SMS OTP PIN"
-                        value={otpPin}
-                        onChange={e => setOtpPin(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059] font-mono"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-gray-500 italic">
-                    * Enter your mobile number and the SMS verification PIN. For testing, use OTP PIN <strong>4829</strong>.
-                  </p>
-                </div>
-              )}
-
-              {(paymentMethod === 'CHAPA' || paymentMethod === 'STRIPE_CARD' || paymentMethod === 'DIASPORA_CARD') && (
-                <div className="bg-[#FCFBFA] p-5 border border-[#E5E1DA] rounded-sm space-y-4 animate-in fade-in duration-300">
-                  <div className="flex justify-between items-center pb-2 border-b border-[#E5E1DA]">
-                    <span className="text-xs font-bold text-[#1A1A1A]">
-                      {paymentMethod === 'STRIPE_CARD' ? 'Stripe International Secure Card Pay' : (paymentMethod === 'CHAPA' ? 'Chapa Financial Card & Bank Gateway' : 'Diaspora Express Card Payment')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCardNumber('4242 4242 4242 4242');
-                        setCardExp('08/28');
-                        setCardCvc('456');
-                      }}
-                      className="text-[10px] uppercase tracking-wider bg-[#C5A059]/15 text-[#C5A059] font-bold px-2.5 py-1 rounded-sm hover:bg-[#C5A059]/25 transition-colors"
-                    >
-                      ⚡ Autofill Test Visa (4242...4242)
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
-                      Card Number (Visa / Mastercard / Amex)
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="4242 •••• •••• ••••"
-                      value={cardNumber}
-                      onChange={e => setCardNumber(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059] font-mono"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
-                        Expiration (MM/YY)
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="MM/YY"
-                        value={cardExp}
-                        onChange={e => setCardExp(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059] font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
-                        CVC Security Code
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={4}
-                        placeholder="123"
-                        value={cardCvc}
-                        onChange={e => setCardCvc(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059] font-mono"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-gray-500 italic">
-                    * PCI-DSS Level 1 compliant TLS 1.3 encrypted transaction. Use any Visa or Mastercard.
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    When you click place order below, you will be securely redirected to Chapa's official checkout page where you can choose <strong>Telebirr</strong>, <strong>CBE Birr</strong>, <strong>Awash Birr</strong>, or <strong>Credit/Debit Cards</strong>. Your payment is verified instantly.
                   </p>
                 </div>
               )}
 
               {paymentMethod === 'CASH_ON_DELIVERY' && (
                 <div className="bg-amber-50/60 p-4 border border-amber-200/80 rounded-sm text-xs text-amber-900 animate-in fade-in duration-300">
-                  <p className="font-semibold mb-1">Addis Ababa City Delivery Only</p>
-                  <p className="text-[11px] text-amber-800">
+                  <p className="font-semibold mb-1">Addis Ababa Doorstep Delivery</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
                     You will pay Cash or Telebirr upon receiving your garment at your doorstep. Please ensure someone is present at your delivery address.
                   </p>
                 </div>
@@ -637,10 +443,10 @@ export const Checkout: React.FC = () => {
               <div className="mt-6 pt-4 border-t border-[#E5E1DA] flex items-center justify-between gap-2 text-xs text-gray-500">
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 text-[#C5A059] shrink-0" />
-                  <span>256-Bit SSL Encrypted • Official Habesha Threads Merchant Gateway</span>
+                  <span>256-Bit SSL Encrypted • Powered by Chapa Gateway</span>
                 </div>
                 <span className="text-[10px] uppercase tracking-widest font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-sm">
-                  Verified Active
+                  Verified Gateway
                 </span>
               </div>
             </div>
@@ -698,13 +504,13 @@ export const Checkout: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold py-4 rounded-sm transition-colors mt-8 flex items-center justify-center gap-2 shadow-lg"
+                className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold py-4 rounded-sm transition-colors mt-8 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
               >
                 {isSubmitting
-                  ? 'Processing Payment...'
+                  ? 'Connecting to Gateway...'
                   : paymentMethod === 'CASH_ON_DELIVERY'
-                    ? 'Place Order Now'
-                    : 'Authorize Payment & Place Order'}
+                    ? 'Place Order (Cash on Delivery)'
+                    : 'Pay with Chapa Secure Checkout'}
                 <ArrowRight className="w-4 h-4" />
               </button>
 

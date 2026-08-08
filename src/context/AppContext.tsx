@@ -255,7 +255,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const showToast = (title: string, message = '', type: 'success' | 'info' | 'error' = 'success') => {
-    const id = `toast_${Date.now()}`;
+    const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     setToasts(prev => [...prev, { id, title, message, type }]);
     setTimeout(() => {
       removeToast(id);

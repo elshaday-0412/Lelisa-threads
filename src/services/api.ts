@@ -95,13 +95,14 @@ export const OrderService = {
         subtotal: orderData.subtotal || 0,
         shippingCost: orderData.shippingCost || 0,
         totalAmount: orderData.totalAmount || 0,
-        paymentMethod: orderData.paymentMethod || 'TELEBIRR',
+        paymentMethod: orderData.paymentMethod || 'CHAPA',
         isPaid: Boolean(orderData.isPaid),
-        transactionRef: orderData.transactionRef,
-        paymentTimestamp: orderData.paymentTimestamp,
-        paymentGatewayResponse: orderData.paymentGatewayResponse,
-        cardLastFour: orderData.cardLastFour,
-        mobileWalletPhone: orderData.mobileWalletPhone,
+        ...(orderData.txRef ? { txRef: orderData.txRef } : {}),
+        ...(orderData.transactionRef ? { transactionRef: orderData.transactionRef } : {}),
+        ...(orderData.paymentTimestamp ? { paymentTimestamp: orderData.paymentTimestamp } : {}),
+        ...(orderData.paymentGatewayResponse ? { paymentGatewayResponse: orderData.paymentGatewayResponse } : {}),
+        ...(orderData.cardLastFour ? { cardLastFour: orderData.cardLastFour } : {}),
+        ...(orderData.mobileWalletPhone ? { mobileWalletPhone: orderData.mobileWalletPhone } : {}),
         status: orderData.status || 'CONFIRMED',
         createdAt: orderData.createdAt || new Date().toISOString()
       };
@@ -189,34 +190,93 @@ export const AdminService = {
 export const WishlistService = {
   async getWishlist(userId: string): Promise<Product[]> {
     try {
-      const response = await api.get('/wishlist', { params: { userId } });
-      return response.data;
-    } catch {
+      let ids: string[] = [];
+      try {
+        const { FirestoreUserDataService } = await import('./firebaseService.js');
+        const userData = await FirestoreUserDataService.getUserData(userId);
+        if (userData?.wishlist && userData.wishlist.length > 0) {
+          ids = userData.wishlist;
+        }
+      } catch (err) {
+        console.warn('Firestore wishlist load fallback:', err);
+      }
+
+      if (ids.length === 0) {
+        const saved = localStorage.getItem(`ht_wishlist_${userId}`) || localStorage.getItem('ht_wishlist');
+        if (saved) {
+          try {
+            ids = JSON.parse(saved);
+          } catch {}
+        }
+      }
+
+      if (!ids || ids.length === 0) return [];
+
+      const allRes = await ExternalInventoryService.getProducts({ limit: 100 });
+      return (allRes.products || []).filter(p => ids.includes(p.id));
+    } catch (err) {
+      console.error('Error fetching wishlist products:', err);
       return [];
     }
   },
 
   async toggleWishlist(userId: string, productId: string): Promise<{ isWishlisted: boolean; wishlist: string[] }> {
-    const response = await api.post('/wishlist/toggle', { userId, productId });
-    return response.data;
+    try {
+      let currentWishlist: string[] = [];
+      try {
+        const { FirestoreUserDataService } = await import('./firebaseService.js');
+        const userData = await FirestoreUserDataService.getUserData(userId);
+        currentWishlist = userData?.wishlist || [];
+      } catch {}
+
+      if (currentWishlist.length === 0) {
+        const saved = localStorage.getItem(`ht_wishlist_${userId}`);
+        if (saved) {
+          try {
+            currentWishlist = JSON.parse(saved);
+          } catch {}
+        }
+      }
+
+      const exists = currentWishlist.includes(productId);
+      const updated = exists ? currentWishlist.filter(id => id !== productId) : [...currentWishlist, productId];
+
+      if (userId) {
+        localStorage.setItem(`ht_wishlist_${userId}`, JSON.stringify(updated));
+        try {
+          const { FirestoreUserDataService } = await import('./firebaseService.js');
+          await FirestoreUserDataService.saveUserWishlist(userId, updated);
+        } catch {}
+      }
+
+      return { isWishlisted: !exists, wishlist: updated };
+    } catch {
+      return { isWishlisted: false, wishlist: [] };
+    }
   }
 };
 
 export const PaymentService = {
-  async processPayment(payload: {
-    amount: number;
-    currency?: string;
-    paymentMethod: string;
-    customerEmail?: string;
-    customerName?: string;
-    customerPhone?: string;
-    mobileNumber?: string;
-    otpPin?: string;
-    cardNumber?: string;
-    cardExp?: string;
-    cardCvc?: string;
-  }): Promise<{ success: boolean; message: string; receipt: PaymentReceipt }> {
-    const response = await api.post('/payments/process', payload);
+  async createChapaCheckout(orderData: any): Promise<{
+    success: boolean;
+    checkoutUrl?: string;
+    txRef?: string;
+    orderId?: string;
+    orderNumber?: string;
+    error?: string;
+  }> {
+    const response = await api.post('/payments/chapa/create', orderData);
+    return response.data;
+  },
+
+  async verifyChapaTransaction(txRef: string): Promise<{
+    success: boolean;
+    verified: boolean;
+    order?: Order;
+    receipt?: PaymentReceipt;
+    message?: string;
+  }> {
+    const response = await api.get(`/payments/chapa/verify/${txRef}`);
     return response.data;
   },
 

@@ -83,8 +83,11 @@ export interface Order {
   city: string;
   region: string;
   status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-  paymentMethod: 'TELEBIRR' | 'CBE_BIRR' | 'CHAPA' | 'STRIPE_CARD' | 'DIASPORA_CARD' | 'CASH_ON_DELIVERY';
+  paymentMethod: 'CHAPA' | 'CASH_ON_DELIVERY' | string;
+  paymentGateway?: 'chapa' | 'cash_on_delivery' | string;
+  paymentStatus?: 'pending' | 'paid' | 'failed' | string;
   isPaid: boolean;
+  txRef?: string;
   transactionRef?: string;
   paymentTimestamp?: string;
   paymentGatewayResponse?: string;
@@ -94,6 +97,7 @@ export interface Order {
   shippingCost: number;
   totalAmount: number;
   createdAt: string;
+  updatedAt?: string;
   items: OrderItem[];
 }
 

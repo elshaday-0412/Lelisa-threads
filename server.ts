@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import axios from 'axios';
 import { SAMPLE_PRODUCTS, Product } from './src/data/sampleProducts.js';
 
 // In-Memory Database for Live Preview & Production Demo
@@ -67,8 +68,11 @@ export interface Order {
   city: string;
   region: string;
   status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-  paymentMethod: 'TELEBIRR' | 'CBE_BIRR' | 'CHAPA' | 'STRIPE_CARD' | 'DIASPORA_CARD' | 'CASH_ON_DELIVERY';
+  paymentMethod: 'CHAPA' | 'CASH_ON_DELIVERY' | string;
+  paymentGateway?: 'chapa' | 'cash_on_delivery' | string;
+  paymentStatus?: 'pending' | 'paid' | 'failed' | string;
   isPaid: boolean;
+  txRef?: string;
   transactionRef?: string;
   paymentTimestamp?: string;
   paymentGatewayResponse?: string;
@@ -195,6 +199,23 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // Helper to format phone number to Chapa required 10-digit format (09xxxxxxxx or 07xxxxxxxx)
+  function cleanPhoneForChapa(phone?: string): string {
+    if (!phone) return '0911000000';
+    let cleaned = String(phone).replace(/\s+|-|\(|\)/g, '');
+    if (cleaned.startsWith('+251')) {
+      cleaned = '0' + cleaned.slice(4);
+    } else if (cleaned.startsWith('251')) {
+      cleaned = '0' + cleaned.slice(3);
+    }
+    cleaned = cleaned.replace(/\D/g, '');
+    if (/^(09|07)\d{8}$/.test(cleaned)) {
+      return cleaned;
+    }
+    return '0911000000';
+  }
 
   // CORS headers
   app.use((req, res, next) => {
@@ -373,98 +394,275 @@ async function startServer() {
     });
   });
 
-  // POST /api/payments/process - Real payment processing & merchant verification
-  app.post('/api/payments/process', (req, res) => {
-    const {
-      amount,
-      currency = 'ETB',
-      paymentMethod,
-      customerEmail,
-      customerName,
-      customerPhone,
-      mobileNumber,
-      otpPin,
-      cardNumber,
-      cardExp,
-      cardCvc
-    } = req.body;
+  // -------------------------------------------------------------
+  // CHAPA HOSTED CHECKOUT ENDPOINTS
+  // -------------------------------------------------------------
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Invalid payment amount' });
+  // POST /api/payments/chapa/create - Initialize Chapa transaction & create pending order
+  app.post('/api/payments/chapa/create', async (req, res) => {
+    try {
+      const {
+        userId,
+        customerName,
+        customerEmail,
+        customerPhone,
+        shippingAddress,
+        city,
+        region,
+        items,
+        subtotal,
+        shippingCost,
+        totalAmount
+      } = req.body;
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'Order items cannot be empty.' });
+      }
+
+      if (!totalAmount || Number(totalAmount) <= 0) {
+        return res.status(400).json({ error: 'Invalid order total amount.' });
+      }
+
+      // Generate clean Chapa transaction reference without dashes
+      const txRef = `HT_CHP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+      const orderId = `ord-${Date.now()}`;
+      const orderNumber = `HT-${Math.floor(10000 + Math.random() * 90000)}`;
+
+      // Construct return and callback URLs
+      let origin = (req.headers.origin as string) || process.env.APP_URL;
+      if (!origin) {
+        const host = req.get('host') || 'localhost:3000';
+        const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+        origin = `${proto}://${host}`;
+      }
+      if (origin.startsWith('http://') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+        origin = origin.replace('http://', 'https://');
+      }
+
+      const returnUrl = `${origin}/checkout/callback?tx_ref=${txRef}`;
+      const callbackUrl = `${origin}/api/payments/chapa/webhook`;
+
+      // Create Pending Order
+      const pendingOrder: Order = {
+        id: orderId,
+        orderNumber,
+        userId: userId || 'guest',
+        customerName: customerName || 'Valued Customer',
+        customerEmail: customerEmail || 'customer@habeshathreads.com',
+        customerPhone: customerPhone || '',
+        shippingAddress: shippingAddress || 'Addis Ababa',
+        city: city || 'Addis Ababa',
+        region: region || 'Addis Ababa',
+        status: 'PENDING',
+        paymentMethod: 'CHAPA',
+        paymentGateway: 'chapa',
+        paymentStatus: 'pending',
+        isPaid: false,
+        txRef,
+        transactionRef: txRef,
+        subtotal: Number(subtotal || 0),
+        shippingCost: Number(shippingCost || 0),
+        totalAmount: Number(totalAmount),
+        createdAt: new Date().toISOString(),
+        items: items.map((item: any, idx: number) => ({
+          id: item.id || `item-${Date.now()}-${idx}`,
+          productId: item.productId || item.product?.id || '',
+          name: item.name || item.product?.name || 'Habesha Item',
+          price: Number(item.price || item.product?.price || 0),
+          quantity: Number(item.quantity || 1),
+          size: item.size || item.selectedSize || 'Standard',
+          color: item.color || item.selectedColor || 'Natural',
+          image: item.image || item.product?.images?.[0] || ''
+        }))
+      };
+
+      orders.unshift(pendingOrder);
+
+      const secretKey = process.env.CHAPA_SECRET_KEY ? process.env.CHAPA_SECRET_KEY.trim() : '';
+      if (!secretKey) {
+        return res.status(400).json({
+          error: 'CHAPA_SECRET_KEY environment variable is missing. Please add your Chapa Secret Key in your project Settings.'
+        });
+      }
+
+      const nameParts = (customerName || 'Habesha Customer').trim().split(' ');
+      const firstName = nameParts[0] || 'Valued';
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Customer';
+      const formattedAmount = String(Number(totalAmount).toFixed(2));
+      const formattedPhone = cleanPhoneForChapa(customerPhone);
+
+      // Construct clean Chapa payload.
+      const chapaPayload: Record<string, any> = {
+        amount: formattedAmount,
+        currency: 'ETB',
+        email: (customerEmail || 'customer@habeshathreads.com').trim(),
+        first_name: firstName,
+        last_name: lastName,
+        tx_ref: txRef,
+        return_url: returnUrl,
+        customization: {
+          title: 'Lelisa Threads',
+          description: `Order ${orderNumber}`
+        }
+      };
+
+      if (formattedPhone) {
+        chapaPayload.phone_number = formattedPhone;
+      }
+
+      if (callbackUrl.startsWith('https://')) {
+        chapaPayload.callback_url = callbackUrl;
+      }
+
+      console.log('[CHAPA INIT REQUEST]', {
+        endpoint: 'https://api.chapa.co/v1/transaction/initialize',
+        tx_ref: txRef,
+        amount: formattedAmount,
+        currency: chapaPayload.currency,
+        email: chapaPayload.email,
+        phone_number: chapaPayload.phone_number,
+        return_url: returnUrl,
+        callback_url: chapaPayload.callback_url,
+        secretKeyPrefix: secretKey.substring(0, 10) + '...'
+      });
+
+      const chapaResponse = await axios.post(
+        'https://api.chapa.co/v1/transaction/initialize',
+        chapaPayload,
+        {
+          headers: {
+            Authorization: `Bearer ${secretKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('[CHAPA INIT RESPONSE SUCCESS]', {
+        status: chapaResponse.status,
+        statusText: chapaResponse.statusText,
+        data: chapaResponse.data
+      });
+
+      if (chapaResponse.data && chapaResponse.data.status === 'success' && chapaResponse.data.data?.checkout_url) {
+        return res.status(200).json({
+          success: true,
+          checkoutUrl: chapaResponse.data.data.checkout_url,
+          txRef,
+          orderId,
+          orderNumber
+        });
+      } else {
+        return res.status(400).json({
+          error: chapaResponse.data?.message || 'Failed to initialize Chapa payment session.'
+        });
+      }
+    } catch (err: any) {
+      console.error('Chapa Initialize Route Error:', err.response?.data || err.message);
+      const errMsg = err.response?.data?.message || err.message || 'Error communicating with Chapa Gateway';
+      res.status(400).json({ error: `Chapa Gateway Error: ${errMsg}` });
     }
+  });
 
-    if (!paymentMethod) {
-      return res.status(400).json({ error: 'Payment method is required' });
+  // GET /api/payments/chapa/verify/:txRef - Verify Chapa transaction server-side
+  app.get('/api/payments/chapa/verify/:txRef', async (req, res) => {
+    try {
+      const { txRef } = req.params;
+      const secretKey = process.env.CHAPA_SECRET_KEY ? process.env.CHAPA_SECRET_KEY.trim() : '';
+
+      if (!secretKey) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          error: 'CHAPA_SECRET_KEY is missing on the server.'
+        });
+      }
+
+      const verifyRes = await axios.get(
+        `https://api.chapa.co/v1/transaction/verify/${txRef}`,
+        {
+          headers: {
+            Authorization: `Bearer ${secretKey}`
+          }
+        }
+      );
+
+      const data = verifyRes.data;
+      if (data && data.status === 'success' && data.data) {
+        const txData = data.data;
+
+        // Find existing order
+        let order = orders.find(o => o.txRef === txRef || o.transactionRef === txRef || o.id === txRef);
+
+        if (order) {
+          order.isPaid = true;
+          order.paymentStatus = 'paid';
+          order.status = 'PROCESSING';
+          order.paymentTimestamp = new Date().toISOString();
+          order.paymentGatewayResponse = txData.reference || txRef;
+        }
+
+        const receipt: PaymentReceipt = {
+          orderId: order ? order.id : `ord-${Date.now()}`,
+          orderNumber: order ? order.orderNumber : `HT-${Math.floor(10000 + Math.random() * 90000)}`,
+          transactionRef: txRef,
+          amount: Number(txData.amount || order?.totalAmount || 0),
+          currency: txData.currency || 'ETB',
+          paymentMethod: 'CHAPA',
+          customerName: `${txData.first_name || ''} ${txData.last_name || ''}`.trim() || order?.customerName || 'Customer',
+          customerEmail: txData.email || order?.customerEmail || '',
+          customerPhone: txData.phone_number || order?.customerPhone || '',
+          timestamp: new Date().toISOString(),
+          status: 'SUCCESS',
+          gatewayDetails: {
+            gateway: 'Chapa Secure Hosted Gateway',
+            authCode: txData.reference || txRef
+          }
+        };
+
+        return res.status(200).json({
+          success: true,
+          verified: true,
+          order,
+          receipt
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          message: data?.message || 'Chapa verification returned unsuccessful status.'
+        });
+      }
+    } catch (err: any) {
+      console.error('Chapa Verify Error:', err.response?.data || err.message);
+      const msg = err.response?.data?.message || err.message || 'Transaction verification failed.';
+      res.status(400).json({
+        success: false,
+        verified: false,
+        message: `Chapa Verification Error: ${msg}`
+      });
     }
+  });
 
-    // Validation for specific payment gateways
-    if (paymentMethod === 'TELEBIRR' || paymentMethod === 'CBE_BIRR') {
-      const phoneToUse = mobileNumber || customerPhone || '';
-      if (!phoneToUse || phoneToUse.trim().length < 9) {
-        return res.status(400).json({
-          error: `Please provide a valid registered Ethio Telecom / CBE Birr phone number (e.g. 0911234567 or +2519...)`
-        });
+  // POST /api/payments/chapa/webhook - Chapa idempotent webhook handler
+  app.post('/api/payments/chapa/webhook', async (req, res) => {
+    try {
+      const { tx_ref, trx_ref } = req.body || {};
+      const txRefToVerify = tx_ref || trx_ref;
+
+      if (txRefToVerify) {
+        const order = orders.find(o => o.txRef === txRefToVerify || o.transactionRef === txRefToVerify);
+        if (order && !order.isPaid) {
+          order.isPaid = true;
+          order.paymentStatus = 'paid';
+          order.status = 'PROCESSING';
+          order.paymentTimestamp = new Date().toISOString();
+        }
       }
-      if (paymentMethod === 'TELEBIRR' && (!otpPin || otpPin.trim().length < 4)) {
-        return res.status(400).json({
-          error: 'Please enter the 4-6 digit Telebirr SMS Authorization / OTP PIN sent to your phone.'
-        });
-      }
-    } else if (paymentMethod === 'CHAPA' || paymentMethod === 'STRIPE_CARD' || paymentMethod === 'DIASPORA_CARD') {
-      if (!cardNumber || cardNumber.replace(/\D/g, '').length < 13) {
-        return res.status(400).json({
-          error: 'Please provide a valid 13 to 19 digit Visa, MasterCard, or American Express card number.'
-        });
-      }
-      if (!cardExp || !cardCvc) {
-        return res.status(400).json({
-          error: 'Card expiration date and CVC security code are required.'
-        });
-      }
+      res.status(200).json({ status: 'success' });
+    } catch (err) {
+      console.error('Chapa Webhook Error:', err);
+      res.status(200).json({ status: 'received_with_error' });
     }
-
-    // Generate unique official Habesha Threads Transaction Reference & Gateway Auth
-    const prefixMap: Record<string, string> = {
-      TELEBIRR: 'TLB',
-      CBE_BIRR: 'CBE',
-      CHAPA: 'CHP',
-      STRIPE_CARD: 'STP',
-      DIASPORA_CARD: 'DSP',
-      CASH_ON_DELIVERY: 'COD'
-    };
-    const prefix = prefixMap[paymentMethod] || 'PAY';
-    const transactionRef = `${prefix}-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const authCode = `AUTH-${Math.floor(100000 + Math.random() * 900000)}`;
-    const cardLastFour = cardNumber ? cardNumber.replace(/\D/g, '').slice(-4) : undefined;
-    const phoneUsed = mobileNumber || customerPhone;
-
-    const receipt: PaymentReceipt = {
-      orderId: `ord-${Math.floor(1000 + Math.random() * 9000)}`,
-      orderNumber: `HT-${Math.floor(10000 + Math.random() * 90000)}`,
-      transactionRef,
-      amount: Number(amount),
-      currency: currency || 'ETB',
-      paymentMethod,
-      customerName: customerName || 'Habesha Customer',
-      customerEmail: customerEmail || 'customer@habeshathreads.com',
-      customerPhone: phoneUsed,
-      timestamp: new Date().toISOString(),
-      status: 'SUCCESS',
-      gatewayDetails: {
-        gateway: paymentMethod === 'STRIPE_CARD' ? 'Stripe Payments Intl' : (paymentMethod === 'CHAPA' ? 'Chapa Financial Technologies' : (paymentMethod === 'TELEBIRR' ? 'Ethio Telecom Telebirr API' : 'CBE Birr Mobile Gateway')),
-        authCode,
-        cardLastFour,
-        mobileNumber: phoneUsed
-      }
-    };
-
-    paymentReceipts.unshift(receipt);
-
-    res.status(200).json({
-      success: true,
-      message: `Payment authorized successfully via ${receipt.gatewayDetails.gateway}.`,
-      receipt
-    });
   });
 
   // GET /api/payments/receipt/:transactionRef
@@ -533,9 +731,11 @@ async function startServer() {
       shippingAddress,
       city,
       region,
-      status: 'PROCESSING',
-      paymentMethod: paymentMethod || 'TELEBIRR',
-      isPaid: isPaid !== undefined ? isPaid : true,
+      status: paymentMethod === 'CASH_ON_DELIVERY' ? 'PROCESSING' : 'PENDING',
+      paymentMethod: paymentMethod || 'CHAPA',
+      paymentGateway: paymentMethod === 'CASH_ON_DELIVERY' ? 'cash_on_delivery' : 'chapa',
+      paymentStatus: paymentMethod === 'CASH_ON_DELIVERY' ? 'pending' : (isPaid ? 'paid' : 'pending'),
+      isPaid: paymentMethod === 'CASH_ON_DELIVERY' ? false : (isPaid !== undefined ? isPaid : false),
       transactionRef,
       paymentTimestamp,
       paymentGatewayResponse,

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext.js';
-import { OrderService, WishlistService, PaymentService } from '../services/api.js';
+import { OrderService, WishlistService, PaymentService, ProductService } from '../services/api.js';
+import { ExternalInventoryService } from '../services/externalInventoryService.js';
 import { FirebaseAuthService, isValidPhone } from '../services/firebaseService.js';
 import { Order, Product } from '../types/index.js';
 import { ProductCard } from '../components/ProductCard.js';
@@ -50,7 +51,12 @@ export const UserDashboard: React.FC = () => {
       try {
         const oList = await OrderService.getOrders(user.id);
         setOrders(oList);
-        const wList = await WishlistService.getWishlist(user.id);
+
+        let wList = await WishlistService.getWishlist(user.id);
+        if (wList.length === 0 && wishlistIds.length > 0) {
+          const allRes = await ExternalInventoryService.getProducts({ limit: 100 });
+          wList = (allRes.products || []).filter(p => wishlistIds.includes(p.id));
+        }
         setWishlistProducts(wList);
       } catch (err) {
         console.error('Failed fetching user dashboard data', err);
@@ -117,52 +123,37 @@ export const UserDashboard: React.FC = () => {
     }
   };
 
+  // Online Bill Payment Handler (Chapa Hosted Checkout)
   const handlePayBillOnline = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBillOrder) return;
     setBillError(null);
     setBillSubmitting(true);
     try {
-      const res = await PaymentService.processPayment({
-        amount: selectedBillOrder.totalAmount,
-        currency: 'ETB',
-        paymentMethod: billPaymentMethod,
-        customerEmail: user?.email || 'customer@example.com',
+      const res = await PaymentService.createChapaCheckout({
+        userId: user?.id || 'guest',
         customerName: selectedBillOrder.customerName,
+        customerEmail: selectedBillOrder.customerEmail,
         customerPhone: selectedBillOrder.customerPhone,
-        mobileNumber: billPhone,
-        otpPin: billOtp,
-        cardNumber: billCardNum,
-        cardExp: billCardExp,
-        cardCvc: billCardCvc
+        shippingAddress: selectedBillOrder.shippingAddress,
+        city: selectedBillOrder.city,
+        region: selectedBillOrder.region,
+        items: selectedBillOrder.items,
+        subtotal: selectedBillOrder.subtotal,
+        shippingCost: selectedBillOrder.shippingCost,
+        totalAmount: selectedBillOrder.totalAmount
       });
 
-      if (!res.success || !res.receipt) {
-        setBillError(res.message || 'Payment authorization declined.');
-        showToast('Payment Failed', res.message || 'Please verify your payment details.', 'error');
-        return;
+      if (res.success && res.checkoutUrl) {
+        showToast('Redirecting...', 'Connecting to Chapa Hosted Payment Gateway...', 'info');
+        window.location.href = res.checkoutUrl;
+      } else {
+        const msg = res.error || 'Failed to initialize Chapa Hosted Checkout.';
+        setBillError(msg);
+        showToast('Payment Gateway Error', msg, 'error');
       }
-
-      setOrders(prev => prev.map(o => {
-        if (o.id === selectedBillOrder.id) {
-          return {
-            ...o,
-            isPaid: true,
-            paymentMethod: billPaymentMethod,
-            transactionRef: res.receipt.transactionRef,
-            paymentTimestamp: res.receipt.timestamp,
-            paymentGatewayResponse: res.receipt.gatewayDetails.authCode,
-            cardLastFour: res.receipt.gatewayDetails.cardLastFour,
-            mobileWalletPhone: res.receipt.gatewayDetails.mobileNumber
-          };
-        }
-        return o;
-      }));
-
-      showToast('Bill Paid Successfully!', `Transaction reference ${res.receipt.transactionRef} confirmed.`, 'success');
-      setSelectedBillOrder(null);
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Unable to connect to payment gateway.';
+      const msg = err.response?.data?.error || err.message || 'Unable to connect to payment gateway.';
       setBillError(msg);
       showToast('Payment Gateway Error', msg, 'error');
     } finally {
@@ -574,140 +565,15 @@ export const UserDashboard: React.FC = () => {
               )}
 
               <form onSubmit={handlePayBillOnline} className="space-y-4 text-xs">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-2">
-                    Select Gateway
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div
-                      onClick={() => setBillPaymentMethod('TELEBIRR')}
-                      className={`p-3 rounded-sm border cursor-pointer flex items-center gap-2 ${
-                        billPaymentMethod === 'TELEBIRR' ? 'border-[#C5A059] bg-[#FCFBFA]' : 'border-[#E5E1DA]'
-                      }`}
-                    >
-                      <Smartphone className="w-4 h-4 text-[#C5A059]" />
-                      <span className="font-bold">Telebirr SMS</span>
-                    </div>
-                    <div
-                      onClick={() => setBillPaymentMethod('CBE_BIRR')}
-                      className={`p-3 rounded-sm border cursor-pointer flex items-center gap-2 ${
-                        billPaymentMethod === 'CBE_BIRR' ? 'border-[#C5A059] bg-[#FCFBFA]' : 'border-[#E5E1DA]'
-                      }`}
-                    >
-                      <Building2 className="w-4 h-4 text-[#C5A059]" />
-                      <span className="font-bold">CBE Birr</span>
-                    </div>
-                    <div
-                      onClick={() => setBillPaymentMethod('CHAPA')}
-                      className={`p-3 rounded-sm border cursor-pointer flex items-center gap-2 ${
-                        billPaymentMethod === 'CHAPA' ? 'border-[#C5A059] bg-[#FCFBFA]' : 'border-[#E5E1DA]'
-                      }`}
-                    >
-                      <CreditCard className="w-4 h-4 text-[#C5A059]" />
-                      <span className="font-bold">Chapa Gateway</span>
-                    </div>
-                    <div
-                      onClick={() => setBillPaymentMethod('STRIPE_CARD')}
-                      className={`p-3 rounded-sm border cursor-pointer flex items-center gap-2 ${
-                        billPaymentMethod === 'STRIPE_CARD' ? 'border-[#C5A059] bg-[#FCFBFA]' : 'border-[#E5E1DA]'
-                      }`}
-                    >
-                      <Globe className="w-4 h-4 text-[#C5A059]" />
-                      <span className="font-bold">Stripe Card</span>
-                    </div>
+                <div className="bg-[#FCFBFA] p-4 border border-[#E5E1DA] rounded-sm space-y-2">
+                  <div className="flex items-center gap-2 text-green-700 font-bold">
+                    <ShieldCheck className="w-4 h-4 text-green-600" />
+                    <span>Chapa Secure Hosted Checkout</span>
                   </div>
+                  <p className="text-gray-600 leading-relaxed">
+                    Clicking below will securely redirect you to Chapa's official payment gateway page to settle this order using Telebirr, CBE Birr, Awash Birr, or Credit/Debit Cards.
+                  </p>
                 </div>
-
-                {(billPaymentMethod === 'TELEBIRR' || billPaymentMethod === 'CBE_BIRR') && (
-                  <div className="space-y-3 bg-[#FCFBFA] p-4 border border-[#E5E1DA] rounded-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#1A1A1A]">Mobile Wallet OTP</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBillPhone(user?.phone || selectedBillOrder?.customerPhone || '0911234567');
-                          setBillOtp('4829');
-                        }}
-                        className="text-[10px] text-[#C5A059] font-bold bg-[#C5A059]/10 px-2 py-0.5 rounded-sm"
-                      >
-                        ⚡ Fill Test (4829)
-                      </button>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-500 mb-1">Phone Number</label>
-                      <input
-                        type="tel"
-                        required
-                        value={billPhone}
-                        onChange={e => setBillPhone(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#E5E1DA] rounded-sm bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-500 mb-1">SMS PIN / OTP</label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={6}
-                        value={billOtp}
-                        onChange={e => setBillOtp(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#E5E1DA] rounded-sm bg-white font-mono"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {(billPaymentMethod === 'CHAPA' || billPaymentMethod === 'STRIPE_CARD') && (
-                  <div className="space-y-3 bg-[#FCFBFA] p-4 border border-[#E5E1DA] rounded-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-[#1A1A1A]">Card Payment</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBillCardNum('4242 4242 4242 4242');
-                          setBillCardExp('08/28');
-                          setBillCardCvc('456');
-                        }}
-                        className="text-[10px] text-[#C5A059] font-bold bg-[#C5A059]/10 px-2 py-0.5 rounded-sm"
-                      >
-                        ⚡ Fill Test Visa
-                      </button>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-500 mb-1">Card Number</label>
-                      <input
-                        type="text"
-                        required
-                        value={billCardNum}
-                        onChange={e => setBillCardNum(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#E5E1DA] rounded-sm bg-white font-mono"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">Expiry</label>
-                        <input
-                          type="text"
-                          required
-                          value={billCardExp}
-                          onChange={e => setBillCardExp(e.target.value)}
-                          className="w-full px-3 py-2 border border-[#E5E1DA] rounded-sm bg-white font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-1">CVC</label>
-                        <input
-                          type="text"
-                          required
-                          maxLength={4}
-                          value={billCardCvc}
-                          onChange={e => setBillCardCvc(e.target.value)}
-                          className="w-full px-3 py-2 border border-[#E5E1DA] rounded-sm bg-white font-mono"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="flex items-center justify-between pt-4 border-t border-[#E5E1DA]">
                   <button
@@ -720,9 +586,9 @@ export const UserDashboard: React.FC = () => {
                   <button
                     type="submit"
                     disabled={billSubmitting}
-                    className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white font-bold uppercase tracking-widest text-[11px] rounded-sm transition-colors shadow-md"
+                    className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white font-bold uppercase tracking-widest text-[11px] rounded-sm transition-colors shadow-md disabled:opacity-50"
                   >
-                    {billSubmitting ? 'Processing Bill...' : `Authorize & Pay ${formatPrice(selectedBillOrder.totalAmount)}`}
+                    {billSubmitting ? 'Connecting...' : `Pay ${formatPrice(selectedBillOrder.totalAmount)} with Chapa`}
                   </button>
                 </div>
               </form>

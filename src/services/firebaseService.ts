@@ -44,6 +44,26 @@ export const isValidPhone = (phone?: string): boolean => {
   return p.length >= 7;
 };
 
+// Recursively strips undefined properties to prevent Firestore setDoc/updateDoc invalid data errors
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirestore(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return data;
+}
+
 // -------------------------------------------------------------
 // 1. ORDERS SERVICE (Firestore DB)
 // -------------------------------------------------------------
@@ -51,10 +71,10 @@ export const FirestoreOrderService = {
   async createOrder(order: Order): Promise<Order> {
     try {
       const docRef = doc(db, ORDERS_COLLECTION, order.id);
-      await setDoc(docRef, {
+      await setDoc(docRef, sanitizeForFirestore({
         ...order,
         createdAt: order.createdAt || new Date().toISOString()
-      });
+      }));
 
       // Notify Central Inventory System of stock reservation
       const orderItemsToReserve = order.items.map(item => ({
@@ -110,10 +130,47 @@ export const FirestoreOrderService = {
 
   async updateOrderStatus(orderId: string, status: Order['status']): Promise<void> {
     const docRef = doc(db, ORDERS_COLLECTION, orderId);
-    await updateDoc(docRef, {
+    await updateDoc(docRef, sanitizeForFirestore({
       status,
       updatedAt: new Date().toISOString()
-    });
+    }));
+  },
+
+  async updateOrderPayment(orderId: string, updates: {
+    isPaid: boolean;
+    paymentStatus: 'pending' | 'paid' | 'failed';
+    status?: Order['status'];
+    paymentTimestamp?: string;
+    transactionRef?: string;
+    paymentGatewayResponse?: string;
+  }): Promise<void> {
+    try {
+      const docRef = doc(db, ORDERS_COLLECTION, orderId);
+      await updateDoc(docRef, sanitizeForFirestore({
+        ...updates,
+        updatedAt: new Date().toISOString()
+      }));
+    } catch (err) {
+      console.warn('Firestore updateOrderPayment notice:', err);
+    }
+  },
+
+  async getOrderByTxRef(txRef: string): Promise<Order | null> {
+    try {
+      const colRef = collection(db, ORDERS_COLLECTION);
+      const snapshot = await getDocs(colRef);
+      let found: Order | null = null;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as Order;
+        if (data.txRef === txRef || data.transactionRef === txRef || data.id === txRef || data.orderNumber === txRef) {
+          found = data;
+        }
+      });
+      return found;
+    } catch (err) {
+      console.warn('Firestore getOrderByTxRef warning:', err);
+      return null;
+    }
   }
 };
 

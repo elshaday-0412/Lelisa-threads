@@ -166,16 +166,6 @@ export const Navbar: React.FC = () => {
               {t.shop}
             </Link>
             <Link
-              to="/shop"
-              className={`hover:text-[#C5A059] transition-colors py-1 relative ${
-                isActive('/shop') && !location.search.includes('newarrival')
-                  ? 'text-[#C5A059] font-bold after:content-[""] after:absolute after:bottom-0 after:left-0 after:w-full after:h-[2px] after:bg-[#C5A059]'
-                  : ''
-              }`}
-            >
-              {t.allProducts}
-            </Link>
-            <Link
               to="/categories"
               className={`hover:text-[#C5A059] transition-colors py-1 relative ${
                 isActive('/categories')
@@ -357,14 +347,6 @@ export const Navbar: React.FC = () => {
                   className="flex items-center justify-between py-2.5 px-3 rounded-sm hover:bg-gray-50 dark:hover:bg-[#222] text-xs uppercase tracking-widest font-semibold transition-colors"
                 >
                   <span>New Arrivals</span>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                </Link>
-                <Link
-                  to="/shop"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-between py-2.5 px-3 rounded-sm hover:bg-gray-50 dark:hover:bg-[#222] text-xs uppercase tracking-widest font-semibold transition-colors"
-                >
-                  <span>Shop All Collections</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
                 <Link

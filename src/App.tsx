@@ -16,6 +16,7 @@ import { Shop } from './pages/Shop.js';
 import { Categories } from './pages/Categories.js';
 import { ProductDetails } from './pages/ProductDetails.js';
 import { Checkout } from './pages/Checkout.js';
+import { CheckoutCallback } from './pages/CheckoutCallback.js';
 import { UserDashboard } from './pages/UserDashboard.js';
 import { AdminDashboard } from './pages/AdminDashboard.js';
 import { CulturalHeritage } from './pages/CulturalHeritage.js';
@@ -41,6 +42,7 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/checkout/callback" element={<CheckoutCallback />} />
               <Route
                 path="/dashboard"
                 element={

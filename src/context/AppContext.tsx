@@ -72,12 +72,44 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Cart state - strictly initialized empty for user isolation
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Cart state - loaded from localStorage if user session exists
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const savedUser = localStorage.getItem('ht_user');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (u?.id) {
+          const savedCart = localStorage.getItem(`ht_cart_${u.id}`);
+          if (savedCart) return JSON.parse(savedCart);
+        }
+      } catch {}
+    }
+    const globalCart = localStorage.getItem('ht_cart');
+    if (globalCart) {
+      try { return JSON.parse(globalCart); } catch {}
+    }
+    return [];
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Wishlist state - strictly initialized empty for user isolation
-  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+  // Wishlist state - loaded from localStorage if user session exists
+  const [wishlistIds, setWishlistIds] = useState<string[]>(() => {
+    const savedUser = localStorage.getItem('ht_user');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (u?.id) {
+          const savedWishlist = localStorage.getItem(`ht_wishlist_${u.id}`);
+          if (savedWishlist) return JSON.parse(savedWishlist);
+        }
+      } catch {}
+    }
+    const globalWishlist = localStorage.getItem('ht_wishlist');
+    if (globalWishlist) {
+      try { return JSON.parse(globalWishlist); } catch {}
+    }
+    return [];
+  });
 
   // Helper to sync cart with Firebase Firestore for current authenticated user
   const syncCartToFirebase = (newCart: CartItem[], targetUid?: string) => {
@@ -331,6 +363,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         exists ? 'Item removed from wishlist' : 'Item added to your wishlist',
         'info'
       );
+      if (user) {
+        localStorage.setItem(`ht_wishlist_${user.id}`, JSON.stringify(updated));
+      } else {
+        localStorage.setItem('ht_wishlist', JSON.stringify(updated));
+      }
       syncWishlistToFirebase(updated);
       return updated;
     });

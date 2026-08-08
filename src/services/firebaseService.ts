@@ -179,24 +179,40 @@ export const FirestoreOrderService = {
 // -------------------------------------------------------------
 export const FirebaseAuthService = {
   async saveUserProfile(user: User, provider: 'email_password' | 'google' | 'form' = 'email_password'): Promise<User> {
-    const userDocRef = doc(db, USERS_COLLECTION, user.id);
-    const existingSnap = await getDoc(userDocRef);
-    const existingData = existingSnap.exists() ? existingSnap.data() : {};
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, user.id);
+      let existingData = {};
+      try {
+        const existingSnap = await getDoc(userDocRef);
+        if (existingSnap.exists()) {
+          existingData = existingSnap.data();
+        }
+      } catch (fsErr) {
+        console.warn('saveUserProfile Firestore read notice:', fsErr);
+      }
 
-    const profileToSave: User = {
-      ...existingData,
-      ...user,
-      authProvider: provider,
-      signupMethod: provider === 'google' ? 'GOOGLE_POPUP' : 'EMAIL_FORM',
-      updatedAt: new Date().toISOString()
-    };
+      const profileToSave: User = {
+        ...(existingData as any),
+        ...user,
+        authProvider: provider,
+        signupMethod: provider === 'google' ? 'GOOGLE_POPUP' : 'EMAIL_FORM',
+        updatedAt: new Date().toISOString()
+      };
 
-    await setDoc(userDocRef, {
-      ...profileToSave,
-      createdAt: existingData.createdAt || new Date().toISOString()
-    }, { merge: true });
+      try {
+        await setDoc(userDocRef, {
+          ...profileToSave,
+          createdAt: (existingData as any).createdAt || new Date().toISOString()
+        }, { merge: true });
+      } catch (fsErr) {
+        console.warn('saveUserProfile Firestore write notice:', fsErr);
+      }
 
-    return profileToSave;
+      return profileToSave;
+    } catch (err) {
+      console.warn('saveUserProfile catch notice:', err);
+      return user;
+    }
   },
 
   async registerWithEmail(email: string, pass: string, fullName: string, phone: string): Promise<User> {
@@ -223,12 +239,16 @@ export const FirebaseAuthService = {
       ]
     };
 
-    // Save profile to Firestore users collection
-    await setDoc(doc(db, USERS_COLLECTION, fbUser.uid), {
-      ...userProfile,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+    // Save profile to Firestore users collection if available
+    try {
+      await setDoc(doc(db, USERS_COLLECTION, fbUser.uid), {
+        ...userProfile,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (fsErr) {
+      console.warn('Firestore user registration setDoc notice:', fsErr);
+    }
 
     return userProfile;
   },
@@ -236,18 +256,6 @@ export const FirebaseAuthService = {
   async loginWithEmail(email: string, pass: string): Promise<User> {
     const userCred = await signInWithEmailAndPassword(auth, email, pass);
     const fbUser = userCred.user;
-
-    // Fetch user profile from Firestore
-    const userDocRef = doc(db, USERS_COLLECTION, fbUser.uid);
-    const docSnap = await getDoc(userDocRef);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data() as User;
-      if (!data.authProvider) {
-        await updateDoc(userDocRef, { authProvider: 'email_password', signupMethod: 'EMAIL_FORM' }).catch(() => {});
-      }
-      return { ...data, authProvider: data.authProvider || 'email_password' };
-    }
 
     const role: 'ADMIN' | 'USER' = email.toLowerCase().includes('admin') ? 'ADMIN' : 'USER';
     const fallbackUser: User = {
@@ -261,27 +269,40 @@ export const FirebaseAuthService = {
       addresses: []
     };
 
-    await setDoc(userDocRef, {
-      ...fallbackUser,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+    // Attempt fetching user profile from Firestore
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, fbUser.uid);
+      const docSnap = await getDoc(userDocRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data() as User;
+        if (!data.authProvider) {
+          await updateDoc(userDocRef, { authProvider: 'email_password', signupMethod: 'EMAIL_FORM' }).catch(() => {});
+        }
+        return { ...data, authProvider: data.authProvider || 'email_password' };
+      }
+
+      await setDoc(userDocRef, {
+        ...fallbackUser,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }).catch(() => {});
+    } catch (fsErr) {
+      console.warn('Firestore doc fetch notice during email login:', fsErr);
+    }
 
     return fallbackUser;
   },
 
   async loginWithGoogle(): Promise<User> {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    
+    // 1. Authenticate with Firebase Google Auth Popup
     const result = await signInWithPopup(auth, provider);
     const fbUser = result.user;
-
-    const userDocRef = doc(db, USERS_COLLECTION, fbUser.uid);
-    const docSnap = await getDoc(userDocRef);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data() as User;
-      return { ...data, authProvider: 'google' };
-    }
 
     const role: 'ADMIN' | 'USER' = (fbUser.email || '').toLowerCase().includes('admin') ? 'ADMIN' : 'USER';
     const googleUser: User = {
@@ -295,11 +316,24 @@ export const FirebaseAuthService = {
       addresses: []
     };
 
-    await setDoc(userDocRef, {
-      ...googleUser,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    });
+    // 2. Sync profile to Firestore if available without throwing error if Firestore DB is offline/uninitialized
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, fbUser.uid);
+      const docSnap = await getDoc(userDocRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data() as User;
+        return { ...data, authProvider: 'google' };
+      }
+
+      await setDoc(userDocRef, {
+        ...googleUser,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (fsErr) {
+      console.warn('Firestore doc sync notice during Google login:', fsErr);
+    }
 
     return googleUser;
   },

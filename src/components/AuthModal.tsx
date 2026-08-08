@@ -142,7 +142,40 @@ export const AuthModal: React.FC = () => {
       setIsAuthModalOpen(false);
       executePendingAction();
     } catch (err: any) {
-      showToast('Google Sign-In Error', err.message || 'Popup closed or blocked', 'error');
+      const code = err?.code || '';
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        console.info('Google sign-in popup closed by user.');
+        showToast('Sign-In Cancelled', 'The Google sign-in window was closed.', 'info');
+      } else {
+        console.error('Google Sign-In failed:', err);
+        if (code === 'auth/unauthorized-domain') {
+          showToast(
+            'Unauthorized Domain',
+            `Domain "${currentHost}" is not added in Firebase. Go to Firebase Console (lelisa-threads) > Authentication > Settings > Authorized domains and add "${currentHost}".`,
+            'error'
+          );
+        } else if (code === 'auth/operation-not-allowed') {
+          showToast(
+            'Google Provider Disabled',
+            'Google Sign-In is disabled in Firebase Console. Go to Authentication > Sign-in method, edit Google, and click Enable.',
+            'error'
+          );
+        } else if (code === 'auth/popup-blocked') {
+          showToast(
+            'Popup Blocked',
+            'The Google login window was blocked by your browser. Please allow popups for this page and try again.',
+            'error'
+          );
+        } else {
+          showToast(
+            'Google Sign-In Error',
+            err.message || 'Failed to authenticate with Google. Check Firebase Console configuration.',
+            'error'
+          );
+        }
+      }
     } finally {
       setIsLoading(false);
     }

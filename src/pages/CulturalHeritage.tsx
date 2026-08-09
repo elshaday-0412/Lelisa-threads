@@ -15,7 +15,7 @@ export const CulturalHeritage: React.FC = () => {
             The Living Heritage of Shemma &amp; Tilet
           </h1>
           <p className="text-xs md:text-sm text-gray-600 font-light max-w-2xl mx-auto leading-relaxed">
-            For over three millennia, the traditional handwoven Ethiopian dress has been a canvas of identity, spirituality, and celebration. Discover the artistry behind every Lelisa Threads creation.
+            For over three millennia, the traditional handwoven Ethiopian dress has been a canvas of identity, spirituality, and celebration. Discover the artistry behind every Wanofi Design creation.
           </p>
         </div>
       </section>

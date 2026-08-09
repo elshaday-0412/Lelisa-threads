@@ -1,14 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext.js';
-import { Sparkles, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
+import wanofiLogo from '../assets/images/wanofi_design_logo.jpg';
+import { Sparkles, ShieldCheck, Truck, RefreshCw, Phone } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const { showToast, t } = useApp();
 
   const handleNewsletter = (e: React.FormEvent) => {
     e.preventDefault();
-    showToast('Subscribed to VIP Drops', 'Thank you for joining Lelisa Threads heritage circle.', 'success');
+    showToast('Subscribed to VIP Drops', 'Thank you for joining Wanofi Design heritage circle.', 'success');
   };
 
   return (
@@ -41,10 +42,21 @@ export const Footer: React.FC = () => {
       {/* Main Footer Links */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-12 py-12">
         <div className="space-y-4">
-          <Link to="/" className="inline-block">
-            <span className="text-2xl font-serif italic tracking-tight text-[#C5A059] font-bold">
-              Lelisa Threads
-            </span>
+          <Link to="/" className="inline-flex items-center gap-3 group">
+            <img
+              src={wanofiLogo}
+              alt="Wanofi Design Logo"
+              className="w-11 h-11 rounded-full object-cover border border-[#C5A059]/60 shadow-xs group-hover:scale-105 transition-transform"
+              referrerPolicy="no-referrer"
+            />
+            <div>
+              <span className="text-xl font-serif italic tracking-tight text-[#C5A059] font-bold block">
+                {t.brandName}
+              </span>
+              <span className="text-[10px] text-white/60 tracking-wider font-mono flex items-center gap-1 mt-0.5">
+                <Phone className="w-2.5 h-2.5 text-[#C5A059]" /> 0911704132 / 0919454971
+              </span>
+            </div>
           </Link>
           <p className="text-xs text-white/60 leading-relaxed font-light">
             Preserving the sacred weaving heritage of Shemma and Tilet. Crafted for celebrations, weddings, and modern elegance.

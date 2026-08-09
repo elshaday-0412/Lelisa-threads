@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.js';
+import wanofiLogo from '../assets/images/wanofi_design_logo.jpg';
 import {
   Search,
   Heart,
@@ -149,9 +150,15 @@ export const Navbar: React.FC = () => {
       <nav className="h-16 sm:h-20 bg-white dark:bg-[#141414] text-[#1A1A1A] dark:text-white flex items-center justify-between px-4 sm:px-8 md:px-12 transition-colors">
         {/* Left: Brand Identity */}
         <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <img
+              src={wanofiLogo}
+              alt="Wanofi Design Logo"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-[#C5A059]/40 group-hover:scale-105 transition-transform shadow-xs"
+              referrerPolicy="no-referrer"
+            />
             <span className="text-xl sm:text-2xl font-serif italic tracking-tight text-[#C5A059] font-bold group-hover:opacity-90 transition-opacity">
-              Lelisa Threads
+              {t.brandName}
             </span>
           </Link>
 
@@ -312,9 +319,17 @@ export const Navbar: React.FC = () => {
           <div className="relative ml-auto w-full max-w-xs sm:max-w-sm h-full bg-white dark:bg-[#181818] text-[#1A1A1A] dark:text-white shadow-2xl flex flex-col justify-between overflow-y-auto z-10 animate-in slide-in-from-right duration-250">
             {/* Drawer Top Bar */}
             <div className="p-5 border-b border-[#E5E1DA] dark:border-[#2D2D2D] flex items-center justify-between bg-white dark:bg-[#141414]">
-              <span className="text-lg font-serif italic text-[#C5A059] font-bold">
-                Lelisa Threads
-              </span>
+              <div className="flex items-center gap-2">
+                <img
+                  src={wanofiLogo}
+                  alt="Wanofi Design Logo"
+                  className="w-7 h-7 rounded-full object-cover border border-[#C5A059]/40"
+                  referrerPolicy="no-referrer"
+                />
+                <span className="text-lg font-serif italic text-[#C5A059] font-bold">
+                  {t.brandName}
+                </span>
+              </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-[#2A2A2A] text-gray-600 dark:text-gray-300"

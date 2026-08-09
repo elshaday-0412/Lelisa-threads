@@ -106,7 +106,7 @@ export interface Translations {
 
 export const translations: Record<Language, Translations> = {
   EN: {
-    brandName: 'Lelisa Threads',
+    brandName: 'Wanofi Design',
     home: 'Home',
     shop: 'Shop Collections',
     categories: 'Categories',
@@ -196,14 +196,14 @@ export const translations: Record<Language, Translations> = {
     orderHistory: 'Order History',
     profileSettings: 'Profile Settings',
     viewDetails: 'View Details',
-    copyright: '© 2026 Lelisa Threads. All Rights Reserved.',
+    copyright: '© 2026 Wanofi Design. All Rights Reserved.',
     privacy: 'Privacy & Policy',
     vipClub: 'Join the VIP Heritage Circle',
     subscribe: 'Subscribe'
   },
 
   AM: {
-    brandName: 'ለሊሳ ስፌት (Lelisa Threads)',
+    brandName: 'ዋኖፊ ዲዛይን (Wanofi Design)',
     home: 'መነሻ ገፅ',
     shop: 'የአልባሳት ስብስብ',
     categories: 'መደቦች',
@@ -293,14 +293,14 @@ export const translations: Record<Language, Translations> = {
     orderHistory: 'የትዕዛዝ ታሪክ',
     profileSettings: 'የመለያ ቅንብሮች',
     viewDetails: 'ዝርዝሩን ተመልከት',
-    copyright: '© 2026 ለሊሳ ስፌት (Lelisa Threads)። መብቱ በህግ የተጠበቀ ነው።',
+    copyright: '© 2026 ዋኖፊ ዲዛይን (Wanofi Design)። መብቱ በህግ የተጠበቀ ነው።',
     privacy: 'የግላዊነት ፖሊሲ',
     vipClub: 'የባህል ወዳጆች ክበብን ይቀላቀሉ',
     subscribe: 'ተመዝገብ'
   },
 
   OM: {
-    brandName: 'Lelisa Threads',
+    brandName: 'Wanofi Design',
     home: 'Fuula Duraa',
     shop: 'Gurgurtaa Uffataa',
     categories: 'Gosa Uffataa',
@@ -390,7 +390,7 @@ export const translations: Record<Language, Translations> = {
     orderHistory: 'Seenaa Ajajaa',
     profileSettings: 'Sajoo Akkaawuntii',
     viewDetails: 'Bal\'inaan Ilaali',
-    copyright: '© 2026 Lelisa Threads. Mirgi Hunduu Kan Eegame.',
+    copyright: '© 2026 Wanofi Design. Mirgi Hunduu Kan Eegame.',
     privacy: 'Imaammata Mateenyaa',
     vipClub: 'Miseensa Maatii Aadaa Ta\'i',
     subscribe: 'Galmeeffadhu'

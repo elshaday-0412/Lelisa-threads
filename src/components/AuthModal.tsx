@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleAuthProvider } from 'firebase/auth';
 import { useApp } from '../context/AppContext.js';
+import wanofiLogo from '../assets/images/wanofi_design_logo.jpg';
 import { FirebaseAuthService, isValidPhone } from '../services/firebaseService.js';
 import {
   X, Lock, Mail, User, Phone, ShieldCheck, ArrowRight, Globe, LogOut, KeyRound,
@@ -21,7 +22,8 @@ export const AuthModal: React.FC = () => {
     showToast,
     authModalReason,
     setAuthModalReason,
-    executePendingAction
+    executePendingAction,
+    t
   } = useApp();
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -256,7 +258,7 @@ export const AuthModal: React.FC = () => {
         if (code === 'auth/unauthorized-domain') {
           showToast(
             'Unauthorized Domain',
-            `Domain "${currentHost}" is not added in Firebase. Go to Firebase Console (lelisa-threads) > Authentication > Settings > Authorized domains and add "${currentHost}".`,
+            `Domain "${currentHost}" is not added in Firebase. Go to Firebase Console > Authentication > Settings > Authorized domains and add "${currentHost}".`,
             'error'
           );
         } else if (code === 'auth/operation-not-allowed') {
@@ -582,8 +584,16 @@ export const AuthModal: React.FC = () => {
           ) : (
             <>
               <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center gap-2 mb-2">
+                  <img
+                    src={wanofiLogo}
+                    alt="Wanofi Design Logo"
+                    className="w-12 h-12 rounded-full object-cover border-2 border-[#C5A059] shadow-xs"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
                 <span className="text-2xl font-serif italic tracking-tight text-[#C5A059] font-bold block mb-1">
-                  Lelisa Threads
+                  {t.brandName}
                 </span>
 
                 {authModalReason && (

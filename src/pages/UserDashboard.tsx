@@ -26,6 +26,10 @@ export const UserDashboard: React.FC = () => {
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [editPhoneVal, setEditPhoneVal] = useState('');
 
+  // Password linking state for current account
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
+  const [newPasswordVal, setNewPasswordVal] = useState('');
+
   // Online Bill Payment Modal State
   const [selectedBillOrder, setSelectedBillOrder] = useState<Order | null>(null);
   const [billPaymentMethod, setBillPaymentMethod] = useState<'TELEBIRR' | 'CBE_BIRR' | 'CHAPA' | 'STRIPE_CARD'>('TELEBIRR');
@@ -448,6 +452,76 @@ export const UserDashboard: React.FC = () => {
                   <span className="text-gray-500 font-medium">Member Role</span>
                   <span className="font-semibold text-[#C5A059]">{user.role}</span>
                 </div>
+
+                <div className="py-2 border-t border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 font-medium">Auth Provider</span>
+                    <span className="font-semibold text-[#1A1A1A] capitalize flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#C5A059]" />
+                      {user.signupMethod === 'EMAIL_AND_GOOGLE' ? 'Google & Password Linked' : (user.authProvider === 'google' ? 'Google Account' : 'Email & Password')}
+                    </span>
+                  </div>
+
+                  {isSettingPassword ? (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!newPasswordVal || newPasswordVal.length < 6) {
+                          showToast('Invalid Password', 'Password must be at least 6 characters.', 'error');
+                          return;
+                        }
+                        try {
+                          const updatedUser = await FirebaseAuthService.linkPasswordToCurrentUser(newPasswordVal);
+                          setUser(updatedUser);
+                          setIsSettingPassword(false);
+                          setNewPasswordVal('');
+                          showToast('Password Set', 'Email/password sign-in is now enabled for your account!', 'success');
+                        } catch (err: any) {
+                          showToast('Linking Error', err.message || 'Failed to set password credential.', 'error');
+                        }
+                      }}
+                      className="mt-3 p-3 bg-amber-50/60 border border-amber-200 rounded-sm space-y-2"
+                    >
+                      <label className="block text-[10px] uppercase tracking-wider font-bold text-gray-800">
+                        Set Password for Email Login
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="New password (min 6 chars)"
+                        value={newPasswordVal}
+                        onChange={e => setNewPasswordVal(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-300 rounded-sm focus:outline-none focus:border-[#C5A059]"
+                      />
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="submit"
+                          className="px-3 py-1.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[10px] uppercase font-bold rounded-sm transition-colors"
+                        >
+                          Enable Password Sign-In
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsSettingPassword(false)}
+                          className="px-2 py-1.5 text-[10px] text-gray-600 hover:text-black font-semibold"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="mt-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setIsSettingPassword(true)}
+                        className="text-[10px] text-[#C5A059] font-bold hover:underline inline-flex items-center gap-1"
+                      >
+                        <Lock className="w-3 h-3" /> Enable / Update Password Sign-In
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="pt-4 border-t border-gray-100 mt-4">
                   <button
                     type="button"

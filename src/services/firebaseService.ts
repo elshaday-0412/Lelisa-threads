@@ -4,7 +4,11 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
+  EmailAuthProvider,
+  linkWithCredential,
+  updatePassword,
   signInWithPopup,
+  AuthCredential,
   User as FirebaseUser
 } from 'firebase/auth';
 import {
@@ -326,6 +330,15 @@ export const FirebaseAuthService = {
         return { ...data, authProvider: 'google' };
       }
 
+      if (fbUser.email) {
+        const q = query(collection(db, USERS_COLLECTION), where("email", "==", fbUser.email));
+        const querySnap = await getDocs(q).catch(() => null);
+        if (querySnap && !querySnap.empty) {
+          const data = querySnap.docs[0].data() as User;
+          return { ...data, authProvider: 'google' };
+        }
+      }
+
       await setDoc(userDocRef, {
         ...googleUser,
         createdAt: new Date().toISOString(),
@@ -336,6 +349,118 @@ export const FirebaseAuthService = {
     }
 
     return googleUser;
+  },
+
+  async linkGoogleAccount(email: string, pass: string, pendingGoogleCred: AuthCredential): Promise<User> {
+    const userCred = await signInWithEmailAndPassword(auth, email, pass);
+    let linkedFbUser = userCred.user;
+
+    try {
+      const linkResult = await linkWithCredential(linkedFbUser, pendingGoogleCred);
+      linkedFbUser = linkResult.user;
+    } catch (linkErr: any) {
+      console.warn('Google credential linking warning:', linkErr);
+      const code = linkErr?.code || '';
+      const msg = linkErr?.message || '';
+      // Safe fallback if credential was already consumed or linked
+      if (
+        code !== 'auth/credential-already-in-use' &&
+        code !== 'auth/provider-already-linked' &&
+        code !== 'auth/missing-or-invalid-nonce' &&
+        !msg.includes('missing-or-invalid-nonce') &&
+        !msg.includes('Duplicate credential')
+      ) {
+        throw linkErr;
+      }
+    }
+
+    const role: 'ADMIN' | 'USER' = (linkedFbUser.email || email).toLowerCase().includes('admin') ? 'ADMIN' : 'USER';
+    const updatedUser: User = {
+      id: linkedFbUser.uid,
+      email: linkedFbUser.email || email,
+      fullName: linkedFbUser.displayName || email.split('@')[0],
+      phone: linkedFbUser.phoneNumber || '',
+      role,
+      authProvider: 'google',
+      signupMethod: 'EMAIL_AND_GOOGLE',
+      addresses: []
+    };
+
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, linkedFbUser.uid);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data() as User;
+        const merged: User = { ...data, authProvider: 'google', signupMethod: 'EMAIL_AND_GOOGLE' };
+        await updateDoc(userDocRef, { authProvider: 'google', signupMethod: 'EMAIL_AND_GOOGLE' }).catch(() => {});
+        return merged;
+      }
+      await setDoc(userDocRef, {
+        ...updatedUser,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }).catch(() => {});
+    } catch (fsErr) {
+      console.warn('Firestore sync notice during Google link:', fsErr);
+    }
+
+    return updatedUser;
+  },
+
+  async linkPasswordToCurrentUser(pass: string): Promise<User> {
+    const currentUser = auth.currentUser;
+    if (!currentUser || !currentUser.email) {
+      throw new Error('No authenticated user found to link password.');
+    }
+
+    let fbUser = currentUser;
+    try {
+      const emailCred = EmailAuthProvider.credential(currentUser.email, pass);
+      const linkRes = await linkWithCredential(currentUser, emailCred);
+      fbUser = linkRes.user;
+    } catch (linkErr: any) {
+      console.warn('Password linking warning:', linkErr);
+      const code = linkErr?.code || '';
+      const msg = linkErr?.message || '';
+      if (
+        code === 'auth/provider-already-linked' ||
+        code === 'auth/credential-already-in-use' ||
+        code === 'auth/missing-or-invalid-nonce' ||
+        msg.includes('missing-or-invalid-nonce') ||
+        msg.includes('Duplicate credential')
+      ) {
+        // Attempt to update password directly for existing provider
+        try {
+          await updatePassword(currentUser, pass);
+        } catch (updateErr) {
+          console.warn('Update password notice:', updateErr);
+        }
+      } else {
+        throw linkErr;
+      }
+    }
+
+    try {
+      const userDocRef = doc(db, USERS_COLLECTION, fbUser.uid);
+      await updateDoc(userDocRef, { signupMethod: 'EMAIL_AND_GOOGLE' }).catch(() => {});
+      const docSnap = await getDoc(userDocRef).catch(() => null);
+      if (docSnap && docSnap.exists()) {
+        return { ...(docSnap.data() as User), signupMethod: 'EMAIL_AND_GOOGLE' };
+      }
+    } catch (fsErr) {
+      console.warn('Firestore update notice during password link:', fsErr);
+    }
+
+    return {
+      id: fbUser.uid,
+      email: fbUser.email || '',
+      fullName: fbUser.displayName || 'Customer',
+      phone: fbUser.phoneNumber || '',
+      role: (fbUser.email || '').toLowerCase().includes('admin') ? 'ADMIN' : 'USER',
+      authProvider: 'email_password',
+      signupMethod: 'EMAIL_AND_GOOGLE',
+      addresses: []
+    };
   },
 
   async updateUserPhone(uid: string, phone: string): Promise<void> {

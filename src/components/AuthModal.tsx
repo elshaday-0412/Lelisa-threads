@@ -27,10 +27,10 @@ export const AuthModal: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
-  // Follow-up phone number and password state for Firebase profiles
+  // Follow-up phone number state for Firebase profiles
   const [phoneFollowUpUser, setPhoneFollowUpUser] = useState<any>(null);
   const [phoneFollowUpInput, setPhoneFollowUpInput] = useState('');
-  const [followUpPasswordInput, setFollowUpPasswordInput] = useState('');
+  const [phoneFollowUpPasswordInput, setPhoneFollowUpPasswordInput] = useState('');
 
   // Pending Google linking state (when logging in via Google for an existing Email/Password account)
   const [pendingGoogleLink, setPendingGoogleLink] = useState<{ email: string; credential: any } | null>(null);
@@ -50,6 +50,7 @@ export const AuthModal: React.FC = () => {
       }
       setPhoneFollowUpUser(null);
       setPendingPhoneUser(null);
+      setPhoneFollowUpPasswordInput('');
       setUser(null);
       showToast('Sign In Cancelled', 'A valid phone number is required to sign in.', 'info');
     }
@@ -164,10 +165,9 @@ export const AuthModal: React.FC = () => {
 
       if (!isValidPhone(googleUser.phone)) {
         setPhoneFollowUpUser(googleUser);
-        setPhoneFollowUpInput(googleUser.phone || '');
-        setFollowUpPasswordInput('');
+        setPhoneFollowUpInput('');
         setIsLoading(false);
-        showToast('Complete Profile', 'Please enter your phone number to complete account setup.', 'info');
+        showToast('Phone Number Required', 'Please enter your phone number to complete Google Sign In.', 'info');
         return;
       }
 
@@ -184,29 +184,6 @@ export const AuthModal: React.FC = () => {
         const existingEmail = err?.customData?.email || email;
         const pendingCred = GoogleAuthProvider.credentialFromError(err);
         if (pendingCred) {
-          if (password && password.length >= 6 && existingEmail) {
-            try {
-              const linkedUser = await FirebaseAuthService.linkGoogleAccount(
-                existingEmail,
-                password,
-                pendingCred
-              );
-              if (!isValidPhone(linkedUser.phone)) {
-                setPhoneFollowUpUser(linkedUser);
-                setPhoneFollowUpInput(linkedUser.phone || '');
-                setIsLoading(false);
-                return;
-              }
-              setUser(linkedUser);
-              showToast('Signed In', `Google Sign-In linked to ${linkedUser.fullName}`, 'success');
-              setIsAuthModalOpen(false);
-              executePendingAction();
-              return;
-            } catch (autoLinkErr) {
-              console.warn('Auto-link with entered password failed:', autoLinkErr);
-            }
-          }
-
           setPendingGoogleLink({ email: existingEmail, credential: pendingCred });
           setLinkPasswordInput('');
           showToast(
@@ -223,12 +200,11 @@ export const AuthModal: React.FC = () => {
         console.info('Google sign-in popup closed by user.');
         showToast('Sign-In Cancelled', 'The Google sign-in window was closed.', 'info');
       } else {
-        console.error('Google Sign-In notice:', err);
-        const errMsg = err?.message || '';
+        console.error('Google Sign-In failed:', err);
         if (code === 'auth/unauthorized-domain') {
           showToast(
             'Unauthorized Domain',
-            `Domain "${currentHost}" is not added in Firebase. Go to Firebase Console > Authentication > Settings > Authorized domains and add "${currentHost}".`,
+            `Domain "${currentHost}" is not added in Firebase. Go to Firebase Console (lelisa-threads) > Authentication > Settings > Authorized domains and add "${currentHost}".`,
             'error'
           );
         } else if (code === 'auth/operation-not-allowed') {
@@ -242,12 +218,6 @@ export const AuthModal: React.FC = () => {
             'Popup Blocked',
             'The Google login window was blocked by your browser. Please allow popups for this page and try again.',
             'error'
-          );
-        } else if (code === 'auth/missing-or-invalid-nonce' || errMsg.includes('missing-or-invalid-nonce') || errMsg.includes('Duplicate credential')) {
-          showToast(
-            'Sign-In Notice',
-            'Your account is linked! Please click Sign In with Google or enter your password to continue.',
-            'info'
           );
         } else {
           showToast(
@@ -303,44 +273,40 @@ export const AuthModal: React.FC = () => {
       showToast('Invalid Phone Number', 'Please enter a valid phone number (at least 7 digits).', 'error');
       return;
     }
-    if (followUpPasswordInput.trim().length > 0 && followUpPasswordInput.trim().length < 6) {
-      showToast('Password Too Short', 'Password must be at least 6 characters.', 'error');
-      return;
-    }
-
-    const targetUser = activePhoneUser;
+    let targetUser = activePhoneUser;
     if (!targetUser) return;
 
     setIsLoading(true);
     try {
-      let updatedUser = targetUser;
+      await FirebaseAuthService.updateUserPhone(targetUser.id, phoneFollowUpInput.trim());
+      targetUser = { ...targetUser, phone: phoneFollowUpInput.trim() };
 
-      if (followUpPasswordInput.trim().length >= 6) {
+      // If user typed a password (at least 6 characters), attempt linking email/password credential
+      if (phoneFollowUpPasswordInput && phoneFollowUpPasswordInput.trim().length >= 6) {
         try {
-          updatedUser = await FirebaseAuthService.linkPasswordToCurrentUser(followUpPasswordInput.trim());
-          showToast('Password Enabled', 'You can now sign in using either Gmail or Email/Password!', 'success');
+          const linkedUser = await FirebaseAuthService.linkPasswordToCurrentUser(phoneFollowUpPasswordInput.trim());
+          targetUser = { ...linkedUser, phone: phoneFollowUpInput.trim() };
+          showToast('Password Set', 'Password enabled! You can now log in with either Google or Email/Password.', 'success');
         } catch (passErr: any) {
-          console.warn('Password linking notice during follow-up:', passErr);
+          console.warn('Password linking during phone follow-up notice:', passErr);
+          showToast('Password Notice', passErr.message || 'Phone saved. Could not link password credential.', 'info');
         }
       }
 
-      await FirebaseAuthService.updateUserPhone(targetUser.id, phoneFollowUpInput.trim());
-      updatedUser = { ...updatedUser, phone: phoneFollowUpInput.trim() };
-
-      setUser(updatedUser);
+      setUser(targetUser);
       setPhoneFollowUpUser(null);
       setPendingPhoneUser(null);
-      setFollowUpPasswordInput('');
-      showToast('Profile Saved', `Welcome ${updatedUser.fullName}! Your profile is set up.`, 'success');
+      setPhoneFollowUpPasswordInput('');
+      showToast('Profile Saved', 'Your profile details are updated and you are now signed in!', 'success');
       setIsAuthModalOpen(false);
       executePendingAction();
-    } catch (err: any) {
-      console.warn('Follow-up update notice:', err);
+    } catch (err) {
+      console.warn('Phone update notice:', err);
       const updatedUser = { ...targetUser, phone: phoneFollowUpInput.trim() };
       setUser(updatedUser);
       setPhoneFollowUpUser(null);
       setPendingPhoneUser(null);
-      setFollowUpPasswordInput('');
+      setPhoneFollowUpPasswordInput('');
       setIsAuthModalOpen(false);
       executePendingAction();
     } finally {
@@ -356,10 +322,10 @@ export const AuthModal: React.FC = () => {
     }
     setPhoneFollowUpUser(null);
     setPendingPhoneUser(null);
-    setFollowUpPasswordInput('');
+    setPhoneFollowUpPasswordInput('');
     setUser(null);
     setIsAuthModalOpen(false);
-    showToast('Sign In Cancelled', 'Sign-in cancelled.', 'info');
+    showToast('Sign In Cancelled', 'Sign-in cancelled because phone number was not provided.', 'info');
   };
 
   return (
@@ -430,13 +396,13 @@ export const AuthModal: React.FC = () => {
             <div>
               <div className="text-center mb-6">
                 <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-[#C5A059] block mb-1">
-                  Complete Account Setup
+                  Complete Profile
                 </span>
                 <h2 className="text-xl font-serif text-gray-900 dark:text-white font-bold">
-                  Welcome, {activePhoneUser.fullName}!
+                  Phone & Account Password
                 </h2>
                 <p className="text-xs text-gray-600 dark:text-gray-300 font-medium mt-1">
-                  Please provide your contact phone number and optionally create a password to enable both Gmail & Email/Password sign-in.
+                  Welcome <strong>{activePhoneUser.fullName}</strong>! Enter your contact phone number, and optionally set a password to allow sign-in via Email/Password or Google.
                 </p>
               </div>
 
@@ -459,21 +425,22 @@ export const AuthModal: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5">
-                    Create Password for Email Login <span className="text-gray-400 font-normal text-[10px] lowercase">(optional)</span>
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5 flex justify-between items-center">
+                    <span>Create Password</span>
+                    <span className="text-[#C5A059] text-[10px] font-semibold lowercase">(optional - enables email login)</span>
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute left-3 top-3" />
                     <input
                       type="password"
-                      placeholder="Min 6 characters to enable email login"
-                      value={followUpPasswordInput}
-                      onChange={e => setFollowUpPasswordInput(e.target.value)}
+                      placeholder="Min 6 characters (e.g. ••••••••)"
+                      value={phoneFollowUpPasswordInput}
+                      onChange={e => setPhoneFollowUpPasswordInput(e.target.value)}
                       className="w-full pl-10 pr-3 py-2.5 text-xs bg-white dark:bg-[#242424] text-gray-900 dark:text-white border border-gray-300 dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] placeholder:text-gray-400 dark:placeholder:text-gray-500 font-medium"
                     />
                   </div>
                   <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                    🔑 Creating a password lets you log in with either Gmail or Email & Password anytime.
+                    Setting a password lets you log in with <strong>{activePhoneUser.email}</strong> & password or Google anytime.
                   </p>
                 </div>
 
@@ -482,7 +449,7 @@ export const AuthModal: React.FC = () => {
                   disabled={isLoading}
                   className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] dark:bg-[#C5A059] dark:hover:bg-[#a88647] text-white text-xs uppercase tracking-[0.2em] font-bold py-3.5 rounded-sm transition-colors flex items-center justify-center gap-2 mt-2 shadow-md"
                 >
-                  {isLoading ? 'Saving Profile...' : 'Complete Setup & Sign In'} <ArrowRight className="w-4 h-4" />
+                  {isLoading ? 'Saving to Firebase...' : 'Save Profile & Complete Sign In'} <ArrowRight className="w-4 h-4" />
                 </button>
 
                 <button

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
@@ -73,8 +74,11 @@
 }
 
 .dark .bg-\[\#FCFBFA\],
+.dark .bg-\[\#FCFBFA\]\/50,
 .dark .bg-\[\#F9F7F4\],
-.dark .bg-\[\#F4F1ED\] {
+.dark .bg-\[\#F9F7F4\]\/50,
+.dark .bg-\[\#F4F1ED\],
+.dark .bg-\[\#F4F1ED\]\/50 {
   background-color: #141414 !important;
   color: #F3F0EC;
 }

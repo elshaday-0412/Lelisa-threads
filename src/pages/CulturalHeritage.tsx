@@ -4,7 +4,7 @@ import { ArrowRight, Sparkles, Award, ShieldCheck } from 'lucide-react';
 
 export const CulturalHeritage: React.FC = () => {
   return (
-    <div className="bg-[#FCFBFA] min-h-screen">
+    <div className="bg-[#FCFBFA] text-[#1A1A1A] min-h-screen">
       {/* Hero Banner */}
       <section className="py-24 px-6 md:px-16 border-b border-[#E5E1DA] text-center">
         <div className="max-w-4xl mx-auto">
@@ -21,7 +21,7 @@ export const CulturalHeritage: React.FC = () => {
       </section>
 
       {/* Story 1: Shemma Weaving */}
-      <section className="py-20 px-6 md:px-16 border-b border-[#E5E1DA] bg-white">
+      <section className="py-20 px-6 md:px-16 border-b border-[#E5E1DA] bg-white text-[#1A1A1A]">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="aspect-[4/3] bg-[#F4F1ED] rounded-sm overflow-hidden border border-[#E5E1DA]">
             <img
@@ -75,7 +75,7 @@ export const CulturalHeritage: React.FC = () => {
       </section>
 
       {/* Regional Traditions Grid */}
-      <section className="py-20 px-6 md:px-16 border-b border-[#E5E1DA] bg-white">
+      <section className="py-20 px-6 md:px-16 border-b border-[#E5E1DA] bg-white text-[#1A1A1A]">
         <div className="max-w-6xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-bold">
@@ -87,7 +87,7 @@ export const CulturalHeritage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA]">
+            <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA] text-[#1A1A1A]">
               <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
                 Northern Highlands
               </span>
@@ -99,7 +99,7 @@ export const CulturalHeritage: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA]">
+            <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA] text-[#1A1A1A]">
               <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
                 Southern &amp; Central Valleys
               </span>
@@ -111,7 +111,7 @@ export const CulturalHeritage: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA]">
+            <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA] text-[#1A1A1A]">
               <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
                 Eastern &amp; Walled City
               </span>

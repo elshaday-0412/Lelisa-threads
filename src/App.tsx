@@ -20,6 +20,7 @@ import { CheckoutCallback } from './pages/CheckoutCallback.js';
 import { UserDashboard } from './pages/UserDashboard.js';
 import { AdminDashboard } from './pages/AdminDashboard.js';
 import { CulturalHeritage } from './pages/CulturalHeritage.js';
+import { PrivacyPolicy } from './pages/PrivacyPolicy.js';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/categories" element={<Categories />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/product/:id" element={<ProductDetails />} />
               <Route
                 path="/checkout"

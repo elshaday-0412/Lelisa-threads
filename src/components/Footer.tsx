@@ -1,15 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext.js';
-import wanofiLogo from '../assets/images/wanofi_design_logo.jpg';
-import { Sparkles, ShieldCheck, Truck, RefreshCw, Phone } from 'lucide-react';
+import wanofiLogo from '../assets/images/logo.png';
+import { Sparkles, ShieldCheck, Truck, RefreshCw, Phone, Mail } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const { showToast, t } = useApp();
 
-  const handleNewsletter = (e: React.FormEvent) => {
+  const handleNewsletter = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     showToast('Subscribed to VIP Drops', 'Thank you for joining Wanofi Design heritage circle.', 'success');
+    e.currentTarget.reset();
   };
 
   return (
@@ -56,6 +57,9 @@ export const Footer: React.FC = () => {
               <span className="text-[10px] text-white/60 tracking-wider font-mono flex items-center gap-1 mt-0.5">
                 <Phone className="w-2.5 h-2.5 text-[#C5A059]" /> 0911704132 / 0919454971
               </span>
+              <span className="text-[10px] text-white/60 tracking-wider font-mono flex items-center gap-1 mt-1">
+                <Mail className="w-2.5 h-2.5 text-[#C5A059]" /> dam09031@gmail.com
+              </span>
             </div>
           </Link>
           <p className="text-xs text-white/60 leading-relaxed font-light">
@@ -72,23 +76,28 @@ export const Footer: React.FC = () => {
               </Link>
             </li>
             <li>
-              <Link to="/shop?category=Men%27s+Traditional+Wear" className="hover:text-[#C5A059] transition-colors">
-                Men’s Traditional Wear
+              <Link to="/shop?category=T-Shirts" className="hover:text-[#C5A059] transition-colors">
+                T-Shirts & Shirts
               </Link>
             </li>
             <li>
-              <Link to="/shop?category=Wedding+Collection" className="hover:text-[#C5A059] transition-colors">
-                Wedding & Mels Couture
+              <Link to="/shop?category=Sweaters" className="hover:text-[#C5A059] transition-colors">
+                Sweaters (Shurabii)
               </Link>
             </li>
             <li>
-              <Link to="/shop?category=Jewelry" className="hover:text-[#C5A059] transition-colors">
-                Axumite Filigree Jewelry
+              <Link to="/shop?category=Children%27s+Wear" className="hover:text-[#C5A059] transition-colors">
+                Children's Wear
               </Link>
             </li>
             <li>
               <Link to="/shop?category=Scarves" className="hover:text-[#C5A059] transition-colors">
                 Netela & Gabi Wraps
+              </Link>
+            </li>
+            <li>
+              <Link to="/shop?category=Bags" className="hover:text-[#C5A059] transition-colors">
+                Traditional Bags
               </Link>
             </li>
           </ul>
@@ -155,7 +164,7 @@ export const Footer: React.FC = () => {
           <span>{t.securePayments}</span>
         </div>
         <div className="flex gap-6">
-          <Link to="/" className="opacity-60 hover:opacity-100">
+          <Link to="/privacy" className="opacity-60 hover:opacity-100 transition-opacity">
             {t.privacy}
           </Link>
           <span className="text-[#C5A059]">{t.copyright}</span>

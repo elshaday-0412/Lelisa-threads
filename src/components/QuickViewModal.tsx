@@ -146,17 +146,17 @@ export const QuickViewModal: React.FC = () => {
             <div className="space-y-3 pt-4 border-t border-[#E5E1DA] dark:border-[#2D2D2D]">
               <div className="flex gap-3">
                 {/* Quantity */}
-                <div className="flex items-center border border-[#E5E1DA] dark:border-[#333] rounded-sm bg-white dark:bg-[#222]">
+                <div className="flex items-center border border-[#E5E1DA] dark:border-[#333] rounded-sm bg-white dark:bg-[#222] text-[#1A1A1A] dark:text-white">
                   <button
                     onClick={() => setQty(Math.max(1, qty - 1))}
-                    className="px-3 py-2.5 text-xs font-bold hover:text-[#C5A059] dark:text-gray-300"
+                    className="px-3 py-2.5 text-xs font-bold hover:text-[#C5A059]"
                   >
                     -
                   </button>
-                  <span className="w-8 text-center text-xs font-semibold dark:text-white">{qty}</span>
+                  <span className="w-8 text-center text-xs font-semibold">{qty}</span>
                   <button
                     onClick={() => setQty(qty + 1)}
-                    className="px-3 py-2.5 text-xs font-bold hover:text-[#C5A059] dark:text-gray-300"
+                    className="px-3 py-2.5 text-xs font-bold hover:text-[#C5A059]"
                   >
                     +
                   </button>

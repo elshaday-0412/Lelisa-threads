@@ -8,7 +8,8 @@ import {
   linkWithCredential,
   signInWithPopup,
   AuthCredential,
-  User as FirebaseUser
+  User as FirebaseUser,
+  browserPopupRedirectResolver
 } from 'firebase/auth';
 import {
   collection,
@@ -86,7 +87,14 @@ export const FirestoreOrderService = {
       })).filter(item => Boolean(item.productId));
 
       if (orderItemsToReserve.length > 0) {
-        await ExternalInventoryService.notifyOrderPlaced(orderItemsToReserve);
+        await ExternalInventoryService.notifyOrderPlaced(orderItemsToReserve, {
+          externalOrderId: order.externalOrderId || order.orderNumber,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          customerEmail: order.customerEmail,
+          shippingAddress: `${order.shippingAddress}, ${order.city}, ${order.region}`,
+          notes: `Payment Method: ${order.paymentMethod}`
+        });
       }
 
       return order;
@@ -297,48 +305,60 @@ export const FirebaseAuthService = {
     return fallbackUser;
   },
 
-  async loginWithGoogle(): Promise<User> {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({
-      prompt: 'select_account'
-    });
-    
-    // 1. Authenticate with Firebase Google Auth Popup
-    const result = await signInWithPopup(auth, provider);
-    const fbUser = result.user;
-
-    const role: 'ADMIN' | 'USER' = (fbUser.email || '').toLowerCase().includes('admin') ? 'ADMIN' : 'USER';
-    const googleUser: User = {
-      id: fbUser.uid,
-      email: fbUser.email || 'google_user@habeshathreads.com',
-      fullName: fbUser.displayName || 'Habesha Customer',
-      phone: fbUser.phoneNumber || '',
-      role,
-      authProvider: 'google',
-      signupMethod: 'GOOGLE_POPUP',
-      addresses: []
-    };
-
-    // 2. Sync profile to Firestore if available without throwing error if Firestore DB is offline/uninitialized
+  async loginWithGoogle(): Promise<{ user: User, isNewUser: boolean }> {
+    // Basic lock to prevent double-clicks
+    if ((this as any)._isGoogleLoginRunning) {
+      throw new Error('Google login is already in progress. Please wait.');
+    }
+    (this as any)._isGoogleLoginRunning = true;
     try {
-      const userDocRef = doc(db, USERS_COLLECTION, fbUser.uid);
-      const docSnap = await getDoc(userDocRef);
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      
+      // 1. Authenticate with Firebase Google Auth Popup
+      const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
+      const fbUser = result.user;
 
-      if (docSnap.exists()) {
-        const data = docSnap.data() as User;
-        return { ...data, authProvider: 'google' };
+      const role: 'ADMIN' | 'USER' = (fbUser.email || '').toLowerCase().includes('admin') ? 'ADMIN' : 'USER';
+      const googleUser: User = {
+        id: fbUser.uid,
+        email: fbUser.email || 'google_user@habeshathreads.com',
+        fullName: fbUser.displayName || 'Habesha Customer',
+        phone: fbUser.phoneNumber || '',
+        role,
+        authProvider: 'google',
+        signupMethod: 'GOOGLE_POPUP',
+        addresses: []
+      };
+
+      let isNewUser = true;
+
+      // 2. Sync profile to Firestore if available without throwing error if Firestore DB is offline/uninitialized
+      try {
+        const userDocRef = doc(db, USERS_COLLECTION, fbUser.uid);
+        const docSnap = await getDoc(userDocRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data() as User;
+          isNewUser = false;
+          return { user: { ...data, authProvider: 'google' }, isNewUser };
+        }
+
+        await setDoc(userDocRef, {
+          ...googleUser,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      } catch (fsErr) {
+        console.warn('Firestore doc sync notice during Google login:', fsErr);
       }
 
-      await setDoc(userDocRef, {
-        ...googleUser,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    } catch (fsErr) {
-      console.warn('Firestore doc sync notice during Google login:', fsErr);
+      return { user: googleUser, isNewUser };
+    } finally {
+      (this as any)._isGoogleLoginRunning = false;
     }
-
-    return googleUser;
   },
 
   async linkGoogleAccount(email: string, pass: string, pendingGoogleCred: AuthCredential): Promise<User> {
@@ -489,8 +509,10 @@ export const FirestoreUserDataService = {
     if (!userId) return;
     try {
       const userDocRef = doc(db, USERS_COLLECTION, userId);
+      // Remove undefined values to prevent Firebase serialization errors
+      const sanitizedCart = JSON.parse(JSON.stringify(cart));
       await setDoc(userDocRef, {
-        cart,
+        cart: sanitizedCart,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {
@@ -502,8 +524,9 @@ export const FirestoreUserDataService = {
     if (!userId) return;
     try {
       const userDocRef = doc(db, USERS_COLLECTION, userId);
+      const sanitizedWishlist = JSON.parse(JSON.stringify(wishlist));
       await setDoc(userDocRef, {
-        wishlist,
+        wishlist: sanitizedWishlist,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {

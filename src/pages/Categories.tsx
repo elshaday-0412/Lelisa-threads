@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ProductService } from '../services/api.js';
 import { useApp } from '../context/AppContext.js';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { SEO } from '../components/SEO.js';
 
 interface CategoryItem {
   id: string;
@@ -33,7 +34,12 @@ export const Categories: React.FC = () => {
   }, []);
 
   return (
-    <div className="bg-[#FCFBFA] min-h-screen py-16 px-6 md:px-16">
+    <div className="bg-[#FCFBFA] text-[#1A1A1A] min-h-screen py-16 px-6 md:px-16">
+      <SEO 
+        title="Collections & Categories"
+        description="Explore our curated collections of Ethiopian cultural attire including authentic Habesha Kemis, Men's Traditional Wear, and Wedding Collections."
+        keywords="Ethiopian Collections, Habesha Dresses, Traditional Wear, African Wedding Attire, Wanofi Collections"
+      />
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
@@ -59,7 +65,7 @@ export const Categories: React.FC = () => {
               <Link
                 key={cat.id}
                 to={`/shop?category=${encodeURIComponent(cat.name)}`}
-                className="group bg-white rounded-sm overflow-hidden border border-[#E5E1DA] hover:border-[#C5A059] transition-all flex flex-col justify-between"
+                className="group bg-white text-[#1A1A1A] rounded-sm overflow-hidden border border-[#E5E1DA] hover:border-[#C5A059] transition-all flex flex-col justify-between"
               >
                 <div>
                   <div className="h-72 bg-[#F4F1ED] overflow-hidden relative">

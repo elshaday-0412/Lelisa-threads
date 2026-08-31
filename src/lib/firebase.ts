@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, browserLocalPersistence, browserPopupRedirectResolver } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
@@ -12,9 +12,14 @@ const firebaseConfig = {
   appId: firebaseConfigJson.appId,
 };
 
-export const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const auth = getAuth(firebaseApp);
+const isNewApp = !getApps().length;
+export const firebaseApp = isNewApp ? initializeApp(firebaseConfig) : getApp();
 
-export const db = firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.firestoreDatabaseId !== '(default)'
-  ? getFirestore(firebaseApp, firebaseConfigJson.firestoreDatabaseId)
-  : getFirestore(firebaseApp);
+export const auth = isNewApp 
+  ? initializeAuth(firebaseApp, { 
+      persistence: browserLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver
+    })
+  : getAuth(firebaseApp);
+
+export const db = getFirestore(firebaseApp);

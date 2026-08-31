@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext.js';
-import wanofiLogo from '../assets/images/wanofi_design_logo.jpg';
+import wanofiLogo from '../assets/images/logo.png';
 import {
   Search,
   Heart,
@@ -62,7 +62,7 @@ export const Navbar: React.FC = () => {
       <div className="bg-white dark:bg-[#0D0D0D] text-[#1A1A1A] dark:text-white text-[10px] md:text-[11px] py-1.5 px-4 sm:px-8 flex items-center justify-between font-medium tracking-wider border-b border-[#EBE7DF] dark:border-[#1F1F1F]">
         <div className="hidden sm:flex items-center gap-2 text-gray-700 dark:text-gray-300">
           <Truck className="w-3.5 h-3.5 text-[#C5A059]" />
-          <span>{t.freeShippingQualify}</span>
+          <span>{t.freeShippingPromo}</span>
         </div>
 
         <div className="flex items-center justify-center sm:justify-end gap-3 sm:gap-5 w-full sm:w-auto text-gray-800 dark:text-white/90">

@@ -7,6 +7,7 @@ import { useApp } from '../context/AppContext.js';
 import { Star, Heart, ShoppingBag, Truck, ShieldCheck, RefreshCw, ChevronRight, Award } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard.js';
 import { RatingStars } from '../components/RatingStars.js';
+import { SEO } from '../components/SEO.js';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -125,6 +126,12 @@ export const ProductDetails: React.FC = () => {
 
   return (
     <div className="bg-[#FCFBFA] min-h-screen py-10 px-6 md:px-16">
+      <SEO 
+        title={product.name}
+        description={product.description || `Shop ${product.name} at Wanofi Design.`}
+        keywords={`${product.name}, ${product.category}, ${product.region}, Ethiopian Clothing`}
+        image={product.images[0]}
+      />
       <div className="max-w-7xl mx-auto">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-xs text-gray-500 mb-8 uppercase tracking-widest">
@@ -144,7 +151,7 @@ export const ProductDetails: React.FC = () => {
           {/* Image Gallery */}
           <div className="lg:col-span-7 flex flex-col sm:flex-row-reverse gap-4">
             {/* Active big image */}
-            <div className="flex-1 h-[450px] sm:h-[620px] bg-[#F4F1ED] rounded-sm overflow-hidden relative border border-[#E5E1DA]">
+            <div className="flex-1 h-[500px] sm:h-[720px] bg-[#F4F1ED] rounded-sm overflow-hidden relative border border-[#E5E1DA]">
               <img
                 src={product.images[selectedImageIdx] || product.images[0]}
                 alt={product.name}
@@ -176,10 +183,10 @@ export const ProductDetails: React.FC = () => {
             <div>
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-bold">
+                  <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
                     {product.category} • {product.region}
                   </span>
-                  <h1 className="text-3xl md:text-4xl font-serif text-[#1A1A1A] font-light mt-1 mb-3">
+                  <h1 className="text-4xl md:text-5xl lg:text-[3.25rem] font-serif text-[#1A1A1A] font-light mt-2 mb-4 leading-[1.1]">
                     {product.name}
                   </h1>
                 </div>
@@ -313,7 +320,7 @@ export const ProductDetails: React.FC = () => {
                     <span className="text-[10px] uppercase tracking-wider font-bold text-amber-700">Fast Dispatch</span>
                   </div>
                 ) : (
-                  <div className="p-2.5 bg-green-50 border border-green-200 text-green-800 text-xs font-medium rounded-sm flex items-center gap-2">
+                  <div className="p-2.5 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800/50 text-green-800 dark:text-green-400 text-xs font-medium rounded-sm flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-600"></span>
                     <span>In Stock ({product.stock} units ready in Addis Ababa vault)</span>
                   </div>
@@ -324,7 +331,7 @@ export const ProductDetails: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex gap-3">
                   {/* Quantity */}
-                  <div className="flex items-center border border-[#E5E1DA] rounded-sm bg-white">
+                  <div className="flex items-center border border-[#E5E1DA] dark:border-[#333] rounded-sm bg-white dark:bg-[#222] text-[#1A1A1A] dark:text-white">
                     <button
                       onClick={() => setQty(Math.max(1, qty - 1))}
                       disabled={product.stock <= 0}
@@ -385,8 +392,8 @@ export const ProductDetails: React.FC = () => {
         </div>
 
         {/* Tabs: Details, Care & Reviews */}
-        <div className="bg-white border border-[#E5E1DA] rounded-sm overflow-hidden mb-20">
-          <div className="flex border-b border-[#E5E1DA] bg-[#FCFBFA]">
+        <div className="bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm overflow-hidden mb-20">
+          <div className="flex border-b border-[#E5E1DA] bg-[#FCFBFA] text-[#1A1A1A]">
             <button
               onClick={() => setActiveTab('details')}
               className={`px-8 py-4 text-xs uppercase tracking-widest font-bold border-b-2 transition-colors ${
@@ -433,7 +440,7 @@ export const ProductDetails: React.FC = () => {
                     The Tilet borders are woven with metallic gold and colored threads, representing regional blessings and historical motifs preserved since the Axumite empire.
                   </p>
                 </div>
-                <div className="bg-[#FCFBFA] p-6 border border-[#E5E1DA] rounded-sm space-y-3">
+                <div className="bg-[#FCFBFA] text-[#1A1A1A] p-6 border border-[#E5E1DA] rounded-sm space-y-3">
                   <div className="flex justify-between">
                     <span className="font-semibold text-[#1A1A1A]">Region of Origin</span>
                     <span>{product.region}</span>

@@ -81,9 +81,11 @@ export const ProductService = {
 export const OrderService = {
   async createOrder(orderData: any): Promise<Order> {
     try {
+      const generatedOrderNumber = orderData.orderNumber || `HT-${Math.floor(100000 + Math.random() * 900000)}`;
       const newOrder: Order = {
         id: orderData.id || `ord-${Date.now()}`,
-        orderNumber: orderData.orderNumber || `HT-${Math.floor(100000 + Math.random() * 900000)}`,
+        orderNumber: generatedOrderNumber,
+        externalOrderId: generatedOrderNumber,
         userId: orderData.userId || 'guest',
         customerName: orderData.customerName || 'Valued Customer',
         customerEmail: orderData.customerEmail || 'customer@habeshathreads.com',
@@ -103,7 +105,7 @@ export const OrderService = {
         ...(orderData.paymentGatewayResponse ? { paymentGatewayResponse: orderData.paymentGatewayResponse } : {}),
         ...(orderData.cardLastFour ? { cardLastFour: orderData.cardLastFour } : {}),
         ...(orderData.mobileWalletPhone ? { mobileWalletPhone: orderData.mobileWalletPhone } : {}),
-        status: orderData.status || 'CONFIRMED',
+        status: orderData.status || 'received',
         createdAt: orderData.createdAt || new Date().toISOString()
       };
 
@@ -116,9 +118,39 @@ export const OrderService = {
     }
   },
 
+  async dispatchOrderToErp(order: Order): Promise<void> {
+    try {
+      await api.post('/orders/dispatch-erp', order);
+    } catch (err) {
+      console.warn('ERP manual dispatch failed:', err);
+    }
+  },
+
   async getOrders(userId?: string): Promise<Order[]> {
     try {
       const orders = await FirestoreOrderService.getOrders(userId);
+      
+      // Auto-sync statuses from ERP
+      try {
+        const externalOrderIds = orders.map(o => o.externalOrderId || o.orderNumber).filter(Boolean);
+        if (externalOrderIds.length > 0) {
+          const syncRes = await api.post('/sync-order-statuses', { externalOrderIds });
+          const statuses = syncRes.data?.statuses || [];
+          
+          let needsStateUpdate = false;
+          for (const s of statuses) {
+            const order = orders.find(o => (o.externalOrderId || o.orderNumber) === s.externalOrderId);
+            if (order && order.status !== s.status) {
+              order.status = s.status;
+              FirestoreOrderService.updateOrderStatus(order.id, s.status as any).catch(console.error);
+              needsStateUpdate = true;
+            }
+          }
+        }
+      } catch (syncErr) {
+        console.warn('ERP sync skipped or failed:', syncErr);
+      }
+
       if (orders.length > 0) return orders;
       const response = await api.get('/orders', { params: { userId } });
       return response.data;
@@ -130,6 +162,26 @@ export const OrderService = {
   async getAllOrders(): Promise<Order[]> {
     try {
       const orders = await FirestoreOrderService.getOrders();
+      
+      // Auto-sync statuses from ERP
+      try {
+        const externalOrderIds = orders.map(o => o.externalOrderId || o.orderNumber).filter(Boolean);
+        if (externalOrderIds.length > 0) {
+          const syncRes = await api.post('/sync-order-statuses', { externalOrderIds });
+          const statuses = syncRes.data?.statuses || [];
+          
+          for (const s of statuses) {
+            const order = orders.find(o => (o.externalOrderId || o.orderNumber) === s.externalOrderId);
+            if (order && order.status !== s.status) {
+              order.status = s.status;
+              FirestoreOrderService.updateOrderStatus(order.id, s.status as any).catch(console.error);
+            }
+          }
+        }
+      } catch (syncErr) {
+        console.warn('ERP sync skipped or failed:', syncErr);
+      }
+
       if (orders.length > 0) return orders;
       const response = await api.get('/orders');
       return response.data;

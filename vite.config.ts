@@ -4,6 +4,9 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const erpUrl = process.env.LELISA_ERP_URL || process.env.VITE_LELISA_ERP_URL || process.env.VITE_EXTERNAL_INVENTORY_API_URL || process.env.EXTERNAL_INVENTORY_API_URL || '';
+  const erpKey = process.env.LELISA_ERP_API_KEY || process.env.VITE_LELISA_ERP_API_KEY || process.env.STOREFRONT_API_KEY || process.env.VITE_STOREFRONT_API_KEY || process.env.VITE_EXTERNAL_INVENTORY_API_KEY || process.env.EXTERNAL_INVENTORY_API_KEY || '';
+
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -11,11 +14,15 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    define: {
+      'import.meta.env.VITE_LELISA_ERP_URL': JSON.stringify(erpUrl),
+      'import.meta.env.VITE_LELISA_ERP_API_KEY': JSON.stringify(erpKey),
+      'import.meta.env.VITE_EXTERNAL_INVENTORY_API_URL': JSON.stringify(erpUrl),
+      'import.meta.env.VITE_EXTERNAL_INVENTORY_API_KEY': JSON.stringify(erpKey),
+    },
+    envPrefix: ['VITE_', 'LELISA_', 'STOREFRONT_', 'EXTERNAL_'],
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };

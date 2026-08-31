@@ -57,6 +57,7 @@ interface AppContextType {
   formatPrice: (amountInBirr: number) => string;
   currencyMode: 'ETB' | 'USD';
   setCurrencyMode: (mode: 'ETB' | 'USD') => void;
+  exchangeRate: number;
 
   // Dark Mode
   isDarkMode: boolean;
@@ -228,7 +229,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (user) {
       localStorage.setItem(`ht_cart_${user.id}`, JSON.stringify(cart));
     } else {
-      localStorage.removeItem('ht_cart');
+      localStorage.setItem('ht_cart', JSON.stringify(cart));
     }
   }, [cart, user]);
 
@@ -236,7 +237,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (user) {
       localStorage.setItem(`ht_wishlist_${user.id}`, JSON.stringify(wishlistIds));
     } else {
-      localStorage.removeItem('ht_wishlist');
+      localStorage.setItem('ht_wishlist', JSON.stringify(wishlistIds));
     }
   }, [wishlistIds, user]);
 
@@ -253,29 +254,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     import('../services/firebaseService.js').then(({ FirebaseAuthService, FirestoreUserDataService, isValidPhone }) => {
       const unsubscribe = FirebaseAuthService.onAuthChange(async authUser => {
         if (authUser) {
-          if (isValidPhone(authUser.phone)) {
-            setUser(authUser);
-            setPendingPhoneUser(null);
-            // Load user-specific bag and favorites from Firebase Firestore
-            const userData = await FirestoreUserDataService.getUserData(authUser.id);
-            setCart(userData.cart);
-            setWishlistIds(userData.wishlist);
-          } else {
-            setUser(null);
-            setPendingPhoneUser(authUser);
-            setCart([]);
-            setWishlistIds([]);
-            setIsAuthModalOpen(true);
-          }
-        } else {
-          // Immediately clear displayed bag items, favorites, badges on sign-out
-          setUser(null);
+          setUser(authUser);
           setPendingPhoneUser(null);
-          setCart([]);
-          setWishlistIds([]);
-          localStorage.removeItem('ht_user');
-          localStorage.removeItem('ht_cart');
-          localStorage.removeItem('ht_wishlist');
+          // Load user-specific bag and favorites from Firebase Firestore
+          const userData = await FirestoreUserDataService.getUserData(authUser.id);
+          
+          setCart(prevCart => {
+            if (prevCart.length === 0) return userData.cart;
+            const merged = [...userData.cart];
+            let hasChanges = false;
+            for (const item of prevCart) {
+              const existingIndex = merged.findIndex(
+                mItem => mItem.product.id === item.product.id && 
+                        mItem.selectedSize === item.selectedSize && 
+                        mItem.selectedColor === item.selectedColor
+              );
+              if (existingIndex > -1) {
+                if (merged[existingIndex].quantity < item.quantity) {
+                  merged[existingIndex].quantity = item.quantity;
+                  hasChanges = true;
+                }
+              } else {
+                merged.push(item);
+                hasChanges = true;
+              }
+            }
+            if (hasChanges) {
+              FirestoreUserDataService.saveUserCart(authUser.id, merged);
+            }
+            return merged;
+          });
+          
+          setWishlistIds(prevWishlist => {
+            if (prevWishlist.length === 0) return userData.wishlist;
+            const merged = Array.from(new Set([...userData.wishlist, ...prevWishlist]));
+            if (merged.length !== userData.wishlist.length) {
+              FirestoreUserDataService.saveUserWishlist(authUser.id, merged);
+            }
+            return merged;
+          });
+        } else {
+          // Do not wipe localStorage here, because iframe cross-origin restrictions might cause Firebase Auth to lose session momentarily upon redirect from payment gateway.
+          // Explicit logouts are handled manually by the logout() function.
         }
         setAuthLoading(false);
       });
@@ -371,10 +391,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       syncWishlistToFirebase(updated);
       return updated;
     });
-
-    if (user) {
-      WishlistService.toggleWishlist(user.id, productId).catch(() => {});
-    }
   };
 
   const isWishlisted = (productId: string) => wishlistIds.includes(productId);
@@ -448,13 +464,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast('Signed Out', 'You have been logged out of your account.', 'info');
   };
 
-  // Convert ETB to USD luxury format if USD toggle is active (1 USD ≈ 120 ETB)
+  const [exchangeRate, setExchangeRate] = useState<number>(120);
+
+  useEffect(() => {
+    // Fetch real-time exchange rate on load
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.rates && data.rates.ETB) {
+          setExchangeRate(data.rates.ETB);
+        }
+      })
+      .catch(err => console.warn('Failed to fetch exchange rate, using fallback.', err));
+  }, []);
+
+  // Convert ETB to USD using real-time rate
   const formatPrice = (amountInBirr: number) => {
-    if (currencyMode === 'USD') {
-      const usd = Math.round(amountInBirr / 40); // displaying proportional luxury price in $ around $350-$450
-      return `$${usd.toLocaleString()}`;
+    if (currencyMode === "USD") {
+      const usd = Math.max(1, Math.round(amountInBirr / exchangeRate)); 
+      return "$" + usd.toLocaleString();
     }
-    return `${amountInBirr.toLocaleString()} ETB`;
+    return amountInBirr.toLocaleString() + " ETB";
   };
 
   return (
@@ -494,6 +524,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         formatPrice,
         currencyMode,
         setCurrencyMode,
+        exchangeRate,
         isDarkMode,
         setIsDarkMode,
         toggleDarkMode,

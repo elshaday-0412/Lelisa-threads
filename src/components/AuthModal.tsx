@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleAuthProvider } from 'firebase/auth';
 import { useApp } from '../context/AppContext.js';
-import wanofiLogo from '../assets/images/wanofi_design_logo.jpg';
+import wanofiLogo from '../assets/images/logo.png';
 import { FirebaseAuthService, isValidPhone } from '../services/firebaseService.js';
 import {
   X, Lock, Mail, User, Phone, ShieldCheck, ArrowRight, Globe, LogOut, KeyRound,
@@ -134,13 +134,6 @@ export const AuthModal: React.FC = () => {
           return;
         }
         const loggedUser = await FirebaseAuthService.loginWithEmail(email, password);
-        if (!isValidPhone(loggedUser.phone)) {
-          setPhoneFollowUpUser(loggedUser);
-          setPhoneFollowUpInput('');
-          setIsLoading(false);
-          showToast('Phone Number Required', 'Please enter your phone number to complete sign in.', 'info');
-          return;
-        }
         setUser(loggedUser);
         setPendingPhoneUser(null);
         showToast('Signed In', `Welcome back, ${loggedUser.fullName}!`, 'success');
@@ -205,7 +198,7 @@ export const AuthModal: React.FC = () => {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      let googleUser = await FirebaseAuthService.loginWithGoogle();
+      let { user: googleUser, isNewUser } = await FirebaseAuthService.loginWithGoogle();
 
       // If user typed a password in the modal form, attempt linking it to their Google account
       if (password && password.length >= 6) {
@@ -217,11 +210,11 @@ export const AuthModal: React.FC = () => {
         }
       }
 
-      if (!isValidPhone(googleUser.phone)) {
+      if (isNewUser && !isValidPhone(googleUser.phone)) {
         setPhoneFollowUpUser(googleUser);
         setPhoneFollowUpInput('');
         setIsLoading(false);
-        showToast('Phone Number Required', 'Please enter your phone number to complete Google Sign In.', 'info');
+        showToast('Profile Setup', 'Please enter your phone number to complete your new account setup.', 'info');
         return;
       }
 
@@ -299,14 +292,6 @@ export const AuthModal: React.FC = () => {
       );
       setPendingGoogleLink(null);
       setLinkPasswordInput('');
-
-      if (!isValidPhone(linkedUser.phone)) {
-        setPhoneFollowUpUser(linkedUser);
-        setPhoneFollowUpInput('');
-        setIsLoading(false);
-        showToast('Phone Number Required', 'Please enter your phone number to complete sign in.', 'info');
-        return;
-      }
 
       setUser(linkedUser);
       setPendingPhoneUser(null);

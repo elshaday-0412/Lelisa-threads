@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext.js';
 import { ProductService, OrderService } from '../services/api.js';
 import { Product, Order, CategoryName, RegionName } from '../types/index.js';
+import { EXTERNAL_INVENTORY_CONFIG, saveErpConfig } from '../services/externalInventoryService.js';
 import {
   BarChart3,
   Package,
@@ -25,7 +26,12 @@ import {
   ShieldCheck,
   CreditCard,
   FileText,
-  Tag
+  Tag,
+  Database,
+  Globe,
+  Key,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
@@ -35,6 +41,12 @@ export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'analytics'>('analytics');
+
+  // ERP Connection state
+  const [erpUrlInput, setErpUrlInput] = useState(EXTERNAL_INVENTORY_CONFIG.baseUrl);
+  const [erpKeyInput, setErpKeyInput] = useState(EXTERNAL_INVENTORY_CONFIG.apiKey);
+  const [showErpPanel, setShowErpPanel] = useState(!EXTERNAL_INVENTORY_CONFIG.isExternalConnected);
+  const [isTestingErp, setIsTestingErp] = useState(false);
 
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,6 +89,41 @@ export const AdminDashboard: React.FC = () => {
       setLoading(false);
     }
   }
+
+  const handleSaveErpConfig = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsTestingErp(true);
+    try {
+      await saveErpConfig(erpUrlInput, erpKeyInput);
+      showToast('ERP Configuration Saved', 'Testing connection to ERP catalog server...', 'info');
+
+      // Test server-to-server ERP catalog fetch
+      const testRes = await fetch('/api/erp/catalog');
+      const testData = await testRes.json();
+
+      await loadAdminData();
+
+      if (testData.source === 'EXTERNAL_CENTRAL_INVENTORY' && testData.connected) {
+        showToast(
+          'ERP Live Sync Active!',
+          `Successfully connected to ERP (${testData.erpUrl}). Fetched ${testData.count || 0} inventory variants.`,
+          'success'
+        );
+      } else if (testData.error) {
+        showToast(
+          'ERP Test Error',
+          `Could not pull catalog: ${testData.error}. Check ERP URL and API key.`,
+          'error'
+        );
+      } else {
+        showToast('Local Fallback Mode', 'ERP URL not set or server-to-server connection returned local demo catalog.', 'info');
+      }
+    } catch (err: any) {
+      showToast('Connection Test Failed', err?.message || 'Could not reach ERP domain', 'error');
+    } finally {
+      setIsTestingErp(false);
+    }
+  };
 
   // Handle stock adjustment (+ or - delta)
   const handleAdjustStock = async (prodId: string, currentStock: number, delta: number) => {
@@ -243,7 +290,7 @@ export const AdminDashboard: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={loadAdminData}
-              className="px-4 py-2 bg-white border border-[#E5E1DA] hover:border-[#C5A059] text-xs uppercase tracking-widest font-bold rounded-sm flex items-center gap-2 transition-colors"
+              className="px-4 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] hover:border-[#C5A059] text-xs uppercase tracking-widest font-bold rounded-sm flex items-center gap-2 transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               Refresh Data
@@ -256,6 +303,92 @@ export const AdminDashboard: React.FC = () => {
               Add Heritage Piece
             </button>
           </div>
+        </div>
+
+        {/* ERP Integration Banner / Control Panel */}
+        <div className="mb-8 bg-white border border-[#E5E1DA] rounded-sm p-5 shadow-xs transition-all">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-full ${EXTERNAL_INVENTORY_CONFIG.isExternalConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                <Database className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-serif font-bold text-sm text-[#1A1A1A]">ERP / Inventory System Connection</h3>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    EXTERNAL_INVENTORY_CONFIG.isExternalConnected
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {EXTERNAL_INVENTORY_CONFIG.isExternalConnected ? 'LIVE SYNC ACTIVE' : 'LOCAL FALLBACK MODE'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {EXTERNAL_INVENTORY_CONFIG.isExternalConnected
+                    ? `Connected to ${EXTERNAL_INVENTORY_CONFIG.baseUrl}`
+                    : 'Set your ERP Domain and Storefront Key below to sync catalog variants and push orders.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowErpPanel(!showErpPanel)}
+              className="px-3.5 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-200 flex items-center gap-1.5 transition-colors"
+            >
+              <Globe className="w-3.5 h-3.5 text-[#C5A059]" />
+              {showErpPanel ? 'Hide ERP Config' : 'Configure ERP Key & Domain'}
+              {showErpPanel ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+          {showErpPanel && (
+            <form onSubmit={handleSaveErpConfig} className="mt-5 pt-5 border-t border-[#E5E1DA] grid grid-cols-1 md:grid-cols-12 gap-4 items-end animate-in fade-in duration-200">
+              <div className="md:col-span-5">
+                <label className="block text-[10px] uppercase tracking-widest font-bold text-gray-600 mb-1 flex items-center gap-1">
+                  <Globe className="w-3 h-3 text-[#C5A059]" />
+                  ERP Server Domain (Base URL)
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://your-erp-domain.com"
+                  value={erpUrlInput}
+                  onChange={(e) => setErpUrlInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-gray-50 border border-gray-300 rounded focus:bg-white focus:border-[#C5A059] outline-none font-mono"
+                />
+              </div>
+
+              <div className="md:col-span-5">
+                <label className="block text-[10px] uppercase tracking-widest font-bold text-gray-600 mb-1 flex items-center gap-1">
+                  <Key className="w-3 h-3 text-[#C5A059]" />
+                  Storefront API Key (LELISA_ERP_API_KEY)
+                </label>
+                <input
+                  type="password"
+                  placeholder="Enter your STOREFRONT_API_KEY"
+                  value={erpKeyInput}
+                  onChange={(e) => setErpKeyInput(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-gray-50 border border-gray-300 rounded focus:bg-white focus:border-[#C5A059] outline-none font-mono"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={isTestingErp}
+                  className="w-full py-2.5 bg-[#C5A059] hover:bg-[#a38242] text-white text-xs font-bold uppercase tracking-wider rounded transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
+                >
+                  {isTestingErp ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+                  {isTestingErp ? 'Testing...' : 'Save & Sync'}
+                </button>
+              </div>
+
+              <div className="md:col-span-12 text-[11px] text-gray-500 bg-gray-50 p-3 rounded border border-gray-200 space-y-1">
+                <p className="font-semibold text-gray-700">ERP Server Integration Protocol:</p>
+                <p>• <strong>Catalog Sync:</strong> Pulls live inventory variants from <code>GET /api/public/catalog</code> with header <code>x-api-key</code>.</p>
+                <p>• <strong>Checkout Orders:</strong> Automatically posts orders on customer checkout to <code>POST /api/public/orders</code> with header <code>x-api-key</code>.</p>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* Stats Summary */}
@@ -432,7 +565,7 @@ export const AdminDashboard: React.FC = () => {
                               >
                                 <Minus className="w-3 h-3 text-gray-700" />
                               </button>
-                              <span className="w-10 text-center font-bold text-sm">{stockVal}</span>
+                              <span className="w-10 text-center font-bold text-sm text-[#1A1A1A]">{stockVal}</span>
                               <button
                                 onClick={() => handleAdjustStock(p.id, stockVal, 1)}
                                 className="w-6 h-6 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-sm flex items-center justify-center text-xs font-bold"
@@ -736,18 +869,21 @@ export const AdminDashboard: React.FC = () => {
                           value={order.status}
                           onChange={e => handleUpdateOrderStatus(order.id, e.target.value as Order['status'])}
                           className={`px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold rounded-sm border focus:outline-none ${
-                            order.status === 'DELIVERED'
-                              ? 'bg-green-100 text-green-800 border-green-300'
-                              : order.status === 'SHIPPED'
+                            order.status === 'completed'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : order.status === 'shipped' || order.status === 'ready'
                               ? 'bg-blue-100 text-blue-800 border-blue-300'
+                              : order.status === 'cancelled'
+                              ? 'bg-red-100 text-red-800 border-red-300'
                               : 'bg-amber-100 text-amber-800 border-amber-300'
                           }`}
                         >
-                          <option value="PENDING">PENDING</option>
-                          <option value="PROCESSING">PROCESSING</option>
-                          <option value="SHIPPED">SHIPPED</option>
-                          <option value="DELIVERED">DELIVERED</option>
-                          <option value="CANCELLED">CANCELLED</option>
+                          <option value="received">RECEIVED (NEW)</option>
+                          <option value="preparing">PREPARING</option>
+                          <option value="ready">READY</option>
+                          <option value="shipped">SHIPPED</option>
+                          <option value="completed">COMPLETED</option>
+                          <option value="cancelled">CANCELLED</option>
                         </select>
                       </td>
 
@@ -903,6 +1039,15 @@ export const AdminDashboard: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
+                    <span className="text-gray-400 text-[10px] uppercase font-bold block">Order Status</span>
+                    <span className="font-bold uppercase text-[#1A1A1A]">
+                      {selectedOrderDossier.status === 'received' ? 'RECEIVED (NEW)' : 
+                       selectedOrderDossier.status === 'ready' ? 'READY FOR PICKUP' : 
+                       selectedOrderDossier.status}
+                    </span>
+                  </div>
+
+                  <div>
                     <span className="text-gray-400 text-[10px] uppercase font-bold block">Full Name</span>
                     <span className="font-bold text-[#1A1A1A]">{selectedOrderDossier.customerName}</span>
                   </div>
@@ -1026,7 +1171,7 @@ export const AdminDashboard: React.FC = () => {
                     placeholder="e.g. Sheba Royal 24K Gold Embroidered Kemis"
                     value={newName}
                     onChange={e => setNewName(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                    className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
                   />
                 </div>
 
@@ -1038,7 +1183,7 @@ export const AdminDashboard: React.FC = () => {
                     <select
                       value={newCategory}
                       onChange={e => setNewCategory(e.target.value as CategoryName)}
-                      className="w-full px-3 py-2 bg-white border border-[#E5E1DA] rounded-sm"
+                      className="w-full px-3 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                     >
                       <option value="Habesha Kemis">Habesha Kemis</option>
                       <option value="Men's Traditional Wear">Men&apos;s Traditional Wear</option>
@@ -1055,7 +1200,7 @@ export const AdminDashboard: React.FC = () => {
                     <select
                       value={newRegion}
                       onChange={e => setNewRegion(e.target.value as RegionName)}
-                      className="w-full px-3 py-2 bg-white border border-[#E5E1DA] rounded-sm"
+                      className="w-full px-3 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                     >
                       <option value="Amhara">Amhara Heritage</option>
                       <option value="Tigray">Tigray Heritage</option>
@@ -1073,7 +1218,7 @@ export const AdminDashboard: React.FC = () => {
                     <select
                       value={newGender}
                       onChange={e => setNewGender(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-white border border-[#E5E1DA] rounded-sm"
+                      className="w-full px-3 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                     >
                       <option value="WOMEN">WOMEN</option>
                       <option value="MEN">MEN</option>
@@ -1093,7 +1238,7 @@ export const AdminDashboard: React.FC = () => {
                       required
                       value={newPrice}
                       onChange={e => setNewPrice(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm"
+                      className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                     />
                   </div>
                   <div>
@@ -1104,7 +1249,7 @@ export const AdminDashboard: React.FC = () => {
                       type="number"
                       value={newOrigPrice || ''}
                       onChange={e => setNewOrigPrice(e.target.value ? Number(e.target.value) : undefined)}
-                      className="w-full px-3 py-2 bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm"
+                      className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                     />
                   </div>
                   <div>
@@ -1116,7 +1261,7 @@ export const AdminDashboard: React.FC = () => {
                       required
                       value={newStock}
                       onChange={e => setNewStock(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm"
+                      className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                     />
                   </div>
                 </div>
@@ -1130,7 +1275,7 @@ export const AdminDashboard: React.FC = () => {
                     required
                     value={newImage}
                     onChange={e => setNewImage(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm"
+                    className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                   />
                 </div>
 
@@ -1143,7 +1288,7 @@ export const AdminDashboard: React.FC = () => {
                     placeholder="Handwoven cotton Shemma with golden cross Tilet..."
                     value={newDesc}
                     onChange={e => setNewDesc(e.target.value)}
-                    className="w-full p-3 bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm"
+                    className="w-full p-3 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                   ></textarea>
                 </div>
 

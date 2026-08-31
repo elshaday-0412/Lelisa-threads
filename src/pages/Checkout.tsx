@@ -6,7 +6,7 @@ import { ShieldCheck, Truck, CheckCircle2, Lock, ArrowRight, Smartphone, Buildin
 import { Order, PaymentReceipt } from '../types/index.js';
 
 export const Checkout: React.FC = () => {
-  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, requireAuth } = useApp();
+  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, requireAuth, currencyMode, exchangeRate } = useApp();
   const navigate = useNavigate();
 
   const [customerName, setCustomerName] = useState(user ? user.fullName : '');
@@ -73,29 +73,52 @@ export const Checkout: React.FC = () => {
       setIsSubmitting(true);
 
       try {
+        const payload = {
+          userId: user ? user.id : 'guest',
+          customerName,
+          customerEmail,
+          customerPhone,
+          shippingAddress,
+          city,
+          region,
+          items: cart.map((item, idx) => ({
+            id: `item-${Date.now()}-${idx}`,
+            productId: item.product.id,
+            name: item.product.name,
+            productName: item.product.name,
+            price: item.product.price,
+            unitPrice: item.product.price,
+            totalPrice: item.product.price * item.quantity,
+            quantity: item.quantity,
+            size: item.selectedSize,
+            color: item.selectedColor,
+            variantInfo: item.selectedSize ? `Size: ${item.selectedSize}` : (item.selectedColor ? `Color: ${item.selectedColor}` : ''),
+            variantSku: `SKU-${item.product.id.substring(0,6)}`,
+            fulfilledFromLocationName: 'Main Storefront',
+            image: item.product.images[0]
+          })),
+          subtotal: cartSubtotal,
+          shippingCost,
+          totalAmount,
+          paymentMethod,
+          isPaid: false
+        };
+
+        // Create the pending order in Firestore first
+        const newOrder = await OrderService.createOrder(payload);
+
         if (paymentMethod === 'CHAPA') {
-          // Initialize Chapa Hosted Checkout
+          const paymentAmount = currencyMode === 'USD' 
+            ? Math.max(1, Math.round(totalAmount / exchangeRate)) 
+            : totalAmount;
+
+          // Initialize Chapa Hosted Checkout passing the generated order info
           const resChapa = await PaymentService.createChapaCheckout({
-            userId: user ? user.id : 'guest',
-            customerName,
-            customerEmail,
-            customerPhone,
-            shippingAddress,
-            city,
-            region,
-            items: cart.map((item, idx) => ({
-              id: `item-${Date.now()}-${idx}`,
-              productId: item.product.id,
-              name: item.product.name,
-              price: item.product.price,
-              quantity: item.quantity,
-              size: item.selectedSize,
-              color: item.selectedColor,
-              image: item.product.images[0]
-            })),
-            subtotal: cartSubtotal,
-            shippingCost,
-            totalAmount
+            ...payload,
+            orderId: newOrder.id,
+            orderNumber: newOrder.orderNumber,
+            paymentCurrency: currencyMode,
+            paymentAmount: paymentAmount
           });
 
           if (resChapa.success && resChapa.checkoutUrl) {
@@ -111,35 +134,18 @@ export const Checkout: React.FC = () => {
           }
         } else {
           // Cash on Delivery Order
-          const payload = {
-            userId: user ? user.id : 'guest',
-            customerName,
-            customerEmail,
-            customerPhone,
-            shippingAddress,
-            city,
-            region,
-            paymentMethod: 'CASH_ON_DELIVERY',
-            items: cart.map((item, idx) => ({
-              id: `item-${Date.now()}-${idx}`,
-              productId: item.product.id,
-              name: item.product.name,
-              price: item.product.price,
-              quantity: item.quantity,
-              size: item.selectedSize,
-              color: item.selectedColor,
-              image: item.product.images[0]
-            })),
-            subtotal: cartSubtotal,
-            shippingCost,
-            totalAmount,
-            isPaid: false
-          };
+          setConfirmedOrder(newOrder);
+          
+          // Dispatch COD order to ERP using server.ts which holds the API keys
+          try {
+            await OrderService.dispatchOrderToErp(newOrder);
+          } catch (e) {
+            console.warn('ERP Dispatch failed for COD:', e);
+          }
 
-          const resOrder = await OrderService.createOrder(payload);
-          setConfirmedOrder(resOrder);
           clearCart();
-          showToast('Order Placed Successfully!', `Your order ${resOrder.orderNumber} is confirmed.`, 'success');
+          showToast('Order Placed Successfully!', `Your order ${newOrder.orderNumber} is confirmed.`, 'success');
+          window.location.href = '#';
           window.scrollTo(0, 0);
         }
       } catch (err: any) {
@@ -157,7 +163,7 @@ export const Checkout: React.FC = () => {
   if (confirmedOrder) {
     return (
       <div className="min-h-screen bg-[#FCFBFA] py-16 px-6 md:px-16">
-        <div className="max-w-3xl mx-auto bg-white p-8 md:p-12 border border-[#E5E1DA] rounded-sm shadow-xl">
+        <div className="max-w-3xl mx-auto bg-white text-[#1A1A1A] p-8 md:p-12 border border-[#E5E1DA] rounded-sm shadow-xl">
           <div className="text-center">
             <div className="w-16 h-16 rounded-full bg-green-50 text-green-600 flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-10 h-10" />
@@ -175,7 +181,7 @@ export const Checkout: React.FC = () => {
           </div>
 
           {/* Official Merchant Payment Receipt Box */}
-          <div className="bg-[#FCFBFA] border-2 border-[#C5A059]/40 rounded-sm p-6 mb-8 shadow-sm">
+          <div className="bg-[#FCFBFA] text-[#1A1A1A] border-2 border-[#C5A059]/40 rounded-sm p-6 mb-8 shadow-sm">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-[#E5E1DA] mb-4 gap-2">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-green-600" />
@@ -280,7 +286,7 @@ export const Checkout: React.FC = () => {
           {/* Left Column: Shipping & Payment */}
           <div className="lg:col-span-7 space-y-8">
             {/* 1. Contact & Address */}
-            <div className="bg-white p-6 md:p-8 border border-[#E5E1DA] rounded-sm">
+            <div className="bg-white text-[#1A1A1A] p-6 md:p-8 border border-[#E5E1DA] rounded-sm">
               <h2 className="text-xl font-serif text-[#1A1A1A] font-light mb-6 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-[#1A1A1A] text-white text-xs flex items-center justify-center font-sans font-bold">1</span>
                 Delivery &amp; Contact Details
@@ -297,7 +303,7 @@ export const Checkout: React.FC = () => {
                     placeholder="e.g. Sara Tadesse"
                     value={customerName}
                     onChange={e => setCustomerName(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                    className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
                   />
                 </div>
                 <div>
@@ -310,7 +316,7 @@ export const Checkout: React.FC = () => {
                     placeholder="sara@example.com"
                     value={customerEmail}
                     onChange={e => setCustomerEmail(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                    className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
                   />
                 </div>
               </div>
@@ -326,7 +332,7 @@ export const Checkout: React.FC = () => {
                     placeholder="+251 911 234 567"
                     value={customerPhone}
                     onChange={e => handleCustomerPhoneChange(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                    className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
                   />
                 </div>
                 <div>
@@ -336,7 +342,7 @@ export const Checkout: React.FC = () => {
                   <select
                     value={city}
                     onChange={e => setCity(e.target.value)}
-                    className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                    className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
                   >
                     <option value="Addis Ababa">Addis Ababa, Ethiopia</option>
                     <option value="Gondar">Gondar, Ethiopia</option>
@@ -361,13 +367,13 @@ export const Checkout: React.FC = () => {
                   placeholder="e.g. Bole Road, Around Friendship Building, Apt 402"
                   value={shippingAddress}
                   onChange={e => setShippingAddress(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                  className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
                 />
               </div>
             </div>
 
             {/* 2. Payment Options: Chapa Online Gateway & Cash on Delivery */}
-            <div className="bg-white p-6 md:p-8 border border-[#E5E1DA] rounded-sm">
+            <div className="bg-white text-[#1A1A1A] p-6 md:p-8 border border-[#E5E1DA] rounded-sm">
               <h2 className="text-xl font-serif text-[#1A1A1A] font-light mb-6 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-[#1A1A1A] text-white text-xs flex items-center justify-center font-sans font-bold">2</span>
                 Payment Gateway &amp; Billing
@@ -417,25 +423,42 @@ export const Checkout: React.FC = () => {
                 </div>
               )}
 
-              {/* Gateway Explanations */}
+              {/* Gateway Explanations & Policies */}
               {paymentMethod === 'CHAPA' && (
-                <div className="bg-[#FCFBFA] p-5 border border-[#E5E1DA] rounded-sm space-y-2 animate-in fade-in duration-300">
+                <div className="bg-[#FCFBFA] text-[#1A1A1A] p-5 border border-[#E5E1DA] rounded-sm space-y-3 animate-in fade-in duration-300">
                   <div className="flex items-center gap-2 pb-2 border-b border-[#E5E1DA]">
                     <ShieldCheck className="w-4 h-4 text-green-600" />
-                    <span className="text-xs font-bold text-[#1A1A1A]">Chapa Financial Technologies Hosted Checkout</span>
+                    <span className="text-xs font-bold text-[#1A1A1A]">Chapa Secure Digital Payment</span>
                   </div>
                   <p className="text-xs text-gray-600 leading-relaxed">
-                    When you click place order below, you will be securely redirected to Chapa's official checkout page where you can choose <strong>Telebirr</strong>, <strong>CBE Birr</strong>, <strong>Awash Birr</strong>, or <strong>Credit/Debit Cards</strong>. Your payment is verified instantly.
+                    You will be securely redirected to Chapa to complete your payment via <strong>Telebirr</strong>, <strong>CBE Birr</strong>, <strong>Awash Birr</strong>, or <strong>Visa/Mastercard</strong>.
                   </p>
+                  <div className="pt-3 border-t border-[#E5E1DA]/50">
+                    <p className="text-[11px] font-bold text-[#1A1A1A] mb-1">Cancellation & Refund Policy:</p>
+                    <ul className="text-[11px] text-gray-600 space-y-1 list-disc pl-4">
+                      <li>Orders can be cancelled from your Dashboard before they are marked as "Preparing" or "Shipped".</li>
+                      <li>Cancelled digital payments are automatically refunded to your original payment method (Telebirr/Card) within 3-5 business days.</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
               {paymentMethod === 'CASH_ON_DELIVERY' && (
-                <div className="bg-amber-50/60 p-4 border border-amber-200/80 rounded-sm text-xs text-amber-900 animate-in fade-in duration-300">
-                  <p className="font-semibold mb-1">Addis Ababa Doorstep Delivery</p>
+                <div className="bg-amber-50/60 p-5 border border-amber-200/80 rounded-sm space-y-3 animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2 pb-2 border-b border-amber-200/50">
+                    <Truck className="w-4 h-4 text-amber-700" />
+                    <p className="text-xs font-bold text-amber-900">Addis Ababa Doorstep Delivery</p>
+                  </div>
                   <p className="text-[11px] text-amber-800 leading-relaxed">
-                    You will pay Cash or Telebirr upon receiving your garment at your doorstep. Please ensure someone is present at your delivery address.
+                    You will pay via Cash or direct CBE Mobile transfer upon receiving your garment. Please ensure someone is present at the delivery address.
                   </p>
+                  <div className="pt-3 border-t border-amber-200/50">
+                    <p className="text-[11px] font-bold text-amber-900 mb-1">Cancellation Policy:</p>
+                    <ul className="text-[11px] text-amber-800 space-y-1 list-disc pl-4">
+                      <li>You may cancel your order at any time from your Dashboard before the driver is dispatched.</li>
+                      <li>If you wish to cancel at the door, a small 150 ETB delivery fee may apply to compensate our drivers.</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
@@ -454,7 +477,7 @@ export const Checkout: React.FC = () => {
 
           {/* Right Column: Order Summary */}
           <div className="lg:col-span-5">
-            <div className="bg-white p-6 md:p-8 border border-[#E5E1DA] rounded-sm sticky top-28">
+            <div className="bg-white text-[#1A1A1A] p-6 md:p-8 border border-[#E5E1DA] rounded-sm sticky top-28">
               <h2 className="text-xl font-serif text-[#1A1A1A] font-light mb-6 border-b border-[#E5E1DA] pb-4">
                 Your Celebration Summary ({cart.length} items)
               </h2>

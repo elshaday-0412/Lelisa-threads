@@ -68,6 +68,7 @@ export interface Translations {
   bagEmptyTitle: string;
   bagEmptySubtitle: string;
   freeShippingQualify: string;
+  freeShippingPromo: string;
   freeShippingAddMore: string;
   subtotal: string;
   shippingFee: string;
@@ -168,6 +169,7 @@ export const translations: Record<Language, Translations> = {
     bagEmptyTitle: 'Your bag is empty',
     bagEmptySubtitle: 'Explore our curated collection of Habesha Kemis, men\'s royal wear, and traditional jewelry.',
     freeShippingQualify: 'You qualify for Free Express Shipping!',
+    freeShippingPromo: 'Free Express Shipping on orders over 10,000 ETB!',
     freeShippingAddMore: 'Add more for Free Shipping.',
     subtotal: 'Subtotal',
     shippingFee: 'Shipping',
@@ -265,6 +267,7 @@ export const translations: Record<Language, Translations> = {
     bagEmptyTitle: 'ቦርሳዎ ባዶ ነው',
     bagEmptySubtitle: 'የሀበሻ ቀሚሶችን፣ የወንዶች አልባሳትንና ባህላዊ ጌጣጌጦችን ይመልከቱ።',
     freeShippingQualify: 'ነፃ የፈጣን ማድረስ አገልግሎት አግኝተዋል!',
+    freeShippingPromo: 'ከ10,000 ብር በላይ ለሆኑ ትዕዛዞች በነፃ እናደርሳለን!',
     freeShippingAddMore: 'ለነፃ ማድረስ ተጨማሪ እቃ ይጨምሩ።',
     subtotal: 'የእቃዎች ዋጋ',
     shippingFee: 'ማድረሻ',
@@ -362,6 +365,7 @@ export const translations: Record<Language, Translations> = {
     bagEmptyTitle: 'Mooqan keessan duudaadha',
     bagEmptySubtitle: 'Uffata aadaa, uffata dhiiraa fi faaya aadaa keessaa filadhaa.',
     freeShippingQualify: 'Geejjiba Basaasaa Bilisaa Argattaniirtu!',
+    freeShippingPromo: 'Ajaja qarshii 10,000 ol ta\'eef geejjibni bilisa!',
     freeShippingAddMore: 'Geejjiba bilisaatiif uffata dabalataa gurguraa.',
     subtotal: 'Gatii Ijaaraa',
     shippingFee: 'Geejjiba',

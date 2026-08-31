@@ -8,7 +8,10 @@ export type CategoryName =
   | 'Jewelry'
   | 'Scarves'
   | 'Shoes'
-  | 'Bags';
+  | 'Bags'
+  | 'T-Shirts'
+  | 'Sweaters'
+  | 'Other Traditional';
 
 export type RegionName =
   | 'Amhara'
@@ -65,16 +68,23 @@ export interface OrderItem {
   id: string;
   productId: string;
   name: string;
+  productName?: string;
   price: number;
+  unitPrice?: number;
+  totalPrice?: number;
   quantity: number;
   size: string;
   color: string;
+  variantInfo?: string;
+  variantSku?: string;
+  fulfilledFromLocationName?: string;
   image: string;
 }
 
 export interface Order {
   id: string;
   orderNumber: string;
+  externalOrderId?: string;
   userId?: string;
   customerName: string;
   customerEmail: string;
@@ -82,7 +92,7 @@ export interface Order {
   shippingAddress: string;
   city: string;
   region: string;
-  status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  status: 'received' | 'preparing' | 'ready' | 'shipped' | 'completed' | 'cancelled';
   paymentMethod: 'CHAPA' | 'CASH_ON_DELIVERY' | string;
   paymentGateway?: 'chapa' | 'cash_on_delivery' | string;
   paymentStatus?: 'pending' | 'paid' | 'failed' | string;

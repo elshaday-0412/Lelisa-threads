@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ProductService } from '../services/api.js';
 import { Product } from '../types/index.js';
 import { ProductCard } from '../components/ProductCard.js';
+import { SEO } from '../components/SEO.js';
 import { useApp } from '../context/AppContext.js';
 import { Sparkles, ArrowRight, ShieldCheck, Award, HeartHandshake, Globe2 } from 'lucide-react';
 
@@ -60,7 +61,12 @@ export const Home: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col bg-[#FCFBFA]">
+    <div className="flex flex-col bg-[#FCFBFA] text-[#1A1A1A]">
+      <SEO 
+        title="Home"
+        description="Wanofi Design — Premium Ethiopian Traditional Clothing & Custom Couture. Explore our handcrafted Habesha Kemis, Wedding Collections, and authentic cultural heritage garments."
+        keywords="Wanofi Design, Ethiopian Traditional Clothing, Habesha Kemis, Custom Couture, Ethiopian Wedding, Tilet, Handwoven Fashion"
+      />
       {/* Clean Minimalism Hero Section matching approved HTML */}
       <section className="flex flex-col justify-center items-center text-center px-6 md:px-12 py-20 md:py-28 bg-[#FCFBFA] border-b border-[#E5E1DA] relative overflow-hidden">
         {/* Decorative subtle background symbol watermark */}
@@ -73,18 +79,18 @@ export const Home: React.FC = () => {
             {t.brandName}
           </span>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif font-light text-[#1A1A1A] tracking-tight leading-[1.1] mb-6">
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-serif font-light text-[#1A1A1A] tracking-tight leading-[1.05] mb-8">
             {t.heroTitle}
           </h1>
 
-          <p className="text-sm md:text-base text-gray-600 font-light max-w-2xl mx-auto leading-relaxed mb-10">
+          <p className="text-base md:text-lg text-gray-600 font-light max-w-2xl mx-auto leading-relaxed mb-12">
             {t.heroSubtitle}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/shop"
-              className="w-full sm:w-auto px-8 py-4 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold rounded-sm transition-all shadow-lg flex items-center justify-center gap-2 group"
+              className="w-full sm:w-auto px-10 py-4 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[11px] uppercase tracking-[0.25em] font-semibold rounded-sm transition-all shadow-xl flex items-center justify-center gap-3 group"
             >
               {t.shopNow}
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -96,14 +102,14 @@ export const Home: React.FC = () => {
                 const el = document.getElementById('heritage-section');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-[#F4F1ED] text-[#1A1A1A] border border-[#E5E1DA] hover:border-[#C5A059] text-xs uppercase tracking-[0.2em] font-semibold rounded-sm transition-all"
+              className="w-full sm:w-auto px-10 py-4 bg-transparent hover:bg-white text-[#1A1A1A] border border-[#1A1A1A]/20 hover:border-[#C5A059] text-[11px] uppercase tracking-[0.25em] font-semibold rounded-sm transition-all"
             >
               {t.exploreHeritage}
             </Link>
           </div>
 
           {/* Key proof points */}
-          <div className="mt-14 pt-10 border-t border-[#E5E1DA]/80 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div className="mt-20 pt-14 border-t border-[#E5E1DA]/60 grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-6 text-center">
             <div>
               <p className="text-lg md:text-xl font-serif font-bold text-[#1A1A1A]">100%</p>
               <p className="text-[10px] uppercase tracking-widest text-gray-500 font-medium mt-0.5">{t.artisanCrafted}</p>
@@ -132,7 +138,7 @@ export const Home: React.FC = () => {
               <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
                 Curated Galleries
               </span>
-              <h2 className="text-3xl md:text-4xl font-serif font-light text-[#1A1A1A] mt-1">
+              <h2 className="text-4xl md:text-[2.75rem] font-serif font-light text-[#1A1A1A] mt-2 leading-tight">
                 Explore Traditional Collections
               </h2>
             </div>
@@ -147,7 +153,7 @@ export const Home: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Link
               to="/shop?category=Habesha+Kemis"
-              className="group relative h-96 rounded-sm overflow-hidden border border-[#E5E1DA] block"
+              className="group relative aspect-[3/4] rounded-sm overflow-hidden border border-[#E5E1DA]/50 block shadow-sm hover:shadow-md transition-shadow"
             >
               <img
                 src="https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80"
@@ -168,7 +174,7 @@ export const Home: React.FC = () => {
 
             <Link
               to="/shop?category=Men%27s+Traditional+Wear"
-              className="group relative h-96 rounded-sm overflow-hidden border border-[#E5E1DA] block"
+              className="group relative aspect-[3/4] rounded-sm overflow-hidden border border-[#E5E1DA]/50 block shadow-sm hover:shadow-md transition-shadow"
             >
               <img
                 src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80"
@@ -189,7 +195,7 @@ export const Home: React.FC = () => {
 
             <Link
               to="/shop?category=Wedding+Collection"
-              className="group relative h-96 rounded-sm overflow-hidden border border-[#E5E1DA] block"
+              className="group relative aspect-[3/4] rounded-sm overflow-hidden border border-[#E5E1DA]/50 block shadow-sm hover:shadow-md transition-shadow"
             >
               <img
                 src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&q=80"
@@ -210,7 +216,7 @@ export const Home: React.FC = () => {
 
             <Link
               to="/shop?category=Jewelry"
-              className="group relative h-96 rounded-sm overflow-hidden border border-[#E5E1DA] block"
+              className="group relative aspect-[3/4] rounded-sm overflow-hidden border border-[#E5E1DA]/50 block shadow-sm hover:shadow-md transition-shadow"
             >
               <img
                 src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80"
@@ -233,14 +239,14 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Featured Collection */}
-      <section className="py-20 px-6 md:px-16 border-b border-[#E5E1DA] bg-white">
+      <section className="py-20 px-6 md:px-16 border-b border-[#E5E1DA] bg-white text-[#1A1A1A]">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12">
             <div>
               <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
                 Artisan Spotlight
               </span>
-              <h2 className="text-3xl md:text-4xl font-serif font-light text-[#1A1A1A] mt-1">
+              <h2 className="text-4xl md:text-[2.75rem] font-serif font-light text-[#1A1A1A] mt-2 leading-tight">
                 Featured Heritage Pieces
               </h2>
             </div>
@@ -255,7 +261,7 @@ export const Home: React.FC = () => {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-96 bg-[#F4F1ED] animate-pulse rounded-sm"></div>
+                <div key={i} className="aspect-[3/4] bg-[#F4F1ED] animate-pulse rounded-sm"></div>
               ))}
             </div>
           ) : (
@@ -278,7 +284,7 @@ export const Home: React.FC = () => {
             <h2 className="text-3xl md:text-5xl font-serif font-light text-[#1A1A1A] mt-2 mb-4">
               Regional Tilet &amp; Traditions
             </h2>
-            <p className="text-xs md:text-sm text-gray-600 font-light leading-relaxed">
+            <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 font-light leading-relaxed">
               Every region of Ethiopia weaves its story into the fabric of the Shemma. From the historic castles of Gondar to the ancient obelisks of Axum, discover garments that celebrate regional identity.
             </p>
           </div>
@@ -288,7 +294,7 @@ export const Home: React.FC = () => {
               <Link
                 key={idx}
                 to={reg.link}
-                className="bg-white p-6 border border-[#E5E1DA] rounded-sm hover:border-[#C5A059] transition-all flex flex-col justify-between group"
+                className="bg-white text-[#1A1A1A] p-6 border border-[#E5E1DA] rounded-sm hover:border-[#C5A059] transition-all flex flex-col justify-between group"
               >
                 <div>
                   <div className="h-48 bg-[#F4F1ED] mb-4 rounded-sm overflow-hidden">
@@ -304,11 +310,11 @@ export const Home: React.FC = () => {
                   <h3 className="text-lg font-serif font-semibold text-[#1A1A1A] mt-1 mb-2">
                     {reg.name}
                   </h3>
-                  <p className="text-xs text-gray-600 font-light leading-relaxed">
+                  <p className="text-xs text-gray-600 dark:text-gray-300 font-light leading-relaxed">
                     {reg.desc}
                   </p>
                 </div>
-                <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-[#1A1A1A] group-hover:text-[#C5A059] transition-colors">
+                <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#2D2D2D] flex items-center justify-between text-xs font-bold uppercase tracking-widest text-[#1A1A1A] group-hover:text-[#C5A059] transition-colors">
                   <span>Explore Region</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
@@ -319,7 +325,7 @@ export const Home: React.FC = () => {
       </section>
 
       {/* New Arrivals */}
-      <section className="py-20 px-6 md:px-16 border-b border-[#E5E1DA] bg-white">
+      <section className="py-20 px-6 md:px-16 border-b border-[#E5E1DA] bg-white text-[#1A1A1A]">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12">
             <div>
@@ -390,7 +396,7 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Customer Testimonials */}
-      <section className="py-20 px-6 md:px-16 bg-[#FCFBFA] border-b border-[#E5E1DA]">
+      <section className="py-20 px-6 md:px-16 bg-[#FCFBFA] text-[#1A1A1A] border-b border-[#E5E1DA]">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
@@ -402,47 +408,47 @@ export const Home: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 border border-[#E5E1DA] rounded-sm flex flex-col justify-between">
+            <div className="bg-white text-[#1A1A1A] p-8 border border-[#E5E1DA] rounded-sm flex flex-col justify-between">
               <div>
                 <div className="flex text-[#C5A059] mb-4">
                   {'★'.repeat(5)}
                 </div>
-                <p className="text-xs font-light text-gray-700 leading-relaxed italic">
+                <p className="text-xs font-light text-gray-700 dark:text-gray-300 leading-relaxed italic">
                   &ldquo;I ordered the Sheba Royal Gold Habesha Kemis for my wedding Mels ceremony in Washington DC. The tailoring was flawless and the Tilet gold threads glimmered in every photo!&rdquo;
                 </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-gray-100">
-                <p className="text-xs font-bold text-[#1A1A1A]">Helen Mekonnen</p>
+              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#2D2D2D]">
+                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">Helen Mekonnen</p>
                 <p className="text-[10px] uppercase tracking-widest text-gray-400">Washington, DC</p>
               </div>
             </div>
 
-            <div className="bg-white p-8 border border-[#E5E1DA] rounded-sm flex flex-col justify-between">
+            <div className="bg-white text-[#1A1A1A] p-8 border border-[#E5E1DA] rounded-sm flex flex-col justify-between">
               <div>
                 <div className="flex text-[#C5A059] mb-4">
                   {'★'.repeat(5)}
                 </div>
-                <p className="text-xs font-light text-gray-700 leading-relaxed italic">
+                <p className="text-xs font-light text-gray-700 dark:text-gray-300 leading-relaxed italic">
                   &ldquo;The Lalibela Embroidered Traditional Suit for my husband fit like bespoke Savile Row tailoring. High-grade cotton and the embroidery is authentic. We will be ordering again.&rdquo;
                 </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-gray-100">
-                <p className="text-xs font-bold text-[#1A1A1A]">Bethelhem &amp; Dawit</p>
+              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#2D2D2D]">
+                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">Bethelhem &amp; Dawit</p>
                 <p className="text-[10px] uppercase tracking-widest text-gray-400">Addis Ababa, Ethiopia</p>
               </div>
             </div>
 
-            <div className="bg-white p-8 border border-[#E5E1DA] rounded-sm flex flex-col justify-between">
+            <div className="bg-white text-[#1A1A1A] p-8 border border-[#E5E1DA] rounded-sm flex flex-col justify-between">
               <div>
                 <div className="flex text-[#C5A059] mb-4">
                   {'★'.repeat(5)}
                 </div>
-                <p className="text-xs font-light text-gray-700 leading-relaxed italic">
+                <p className="text-xs font-light text-gray-700 dark:text-gray-300 leading-relaxed italic">
                   &ldquo;The 24K Gold-Plated Filigree Cross Necklace is an absolute work of art. It reminds me of the ancient Axum crosses my grandmother wore. Truly stunning craftsmanship.&rdquo;
                 </p>
               </div>
-              <div className="mt-6 pt-4 border-t border-gray-100">
-                <p className="text-xs font-bold text-[#1A1A1A]">Yared Kassahun</p>
+              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#2D2D2D]">
+                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">Yared Kassahun</p>
                 <p className="text-[10px] uppercase tracking-widest text-gray-400">London, UK</p>
               </div>
             </div>

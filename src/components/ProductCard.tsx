@@ -16,7 +16,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   return (
     <div className="flex flex-col group cursor-pointer select-none">
       {/* Image Container */}
-      <div className="h-72 md:h-80 bg-[#F4F1ED] mb-3 relative rounded-sm overflow-hidden border border-[#E5E1DA]/50">
+      <div className="aspect-[3/4] bg-[#F4F1ED] mb-4 relative rounded-sm overflow-hidden border border-[#E5E1DA]/50">
         <Link to={`/product/${product.id}`} className="block w-full h-full">
           <img
             src={product.images[0]}
@@ -58,7 +58,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             e.stopPropagation();
             requireAuth(() => toggleWishlist(product.id), 'Please log in or create an account to save items to your wishlist.');
           }}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-sm transition-all hover:scale-110"
+          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-gray-900 flex items-center justify-center shadow-sm transition-all hover:scale-110"
           aria-label="Add to Wishlist"
           title={wishlisted ? 'Remove from favorites' : 'Save to favorites'}
         >
@@ -76,7 +76,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               e.stopPropagation();
               setQuickViewProduct(product);
             }}
-            className="flex-1 bg-white/95 hover:bg-white text-[#1A1A1A] text-[10px] uppercase tracking-widest py-2.5 font-bold rounded-sm shadow-md flex items-center justify-center gap-1.5 transition-colors"
+            className="flex-1 bg-white/95 hover:bg-white text-gray-900 text-[10px] uppercase tracking-widest py-2.5 font-bold rounded-sm shadow-md flex items-center justify-center gap-1.5 transition-colors"
           >
             <Eye className="w-3.5 h-3.5 text-[#C5A059]" />
             {t.quickView}
@@ -105,11 +105,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       {/* Card Info */}
       <div className="flex justify-between items-start gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold truncate">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-[#C5A059] font-bold truncate mb-1">
             {product.region} / {product.category}
           </p>
           <Link to={`/product/${product.id}`} className="block">
-            <h3 className="text-sm font-medium text-[#1A1A1A] group-hover:text-[#C5A059] transition-colors truncate">
+            <h3 className="text-sm font-medium text-[#1A1A1A] group-hover:text-[#C5A059] transition-colors truncate leading-snug">
               {product.name}
             </h3>
           </Link>
@@ -122,7 +122,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
 
         <div className="text-right shrink-0">
-          <span className="text-sm font-serif font-semibold text-[#1A1A1A]">
+          <span className="text-[15px] font-serif font-semibold text-[#1A1A1A]">
             {formatPrice(product.price)}
           </span>
         </div>

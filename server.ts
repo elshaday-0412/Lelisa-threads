@@ -7,6 +7,102 @@ import { SAMPLE_PRODUCTS, Product } from './src/data/sampleProducts.js';
 // In-Memory Database for Live Preview & Production Demo
 let products: Product[] = [...SAMPLE_PRODUCTS];
 
+// Central ERP Server Integration State
+let erpConfig = {
+  url: String(
+    process.env.LELISA_ERP_URL ||
+    process.env.VITE_LELISA_ERP_URL ||
+    process.env.VITE_EXTERNAL_INVENTORY_API_URL ||
+    process.env.EXTERNAL_INVENTORY_API_URL ||
+    ''
+  ).trim().replace(/\/+$/, ''),
+  apiKey: String(
+    process.env.LELISA_ERP_API_KEY ||
+    process.env.STOREFRONT_API_KEY ||
+    process.env.VITE_STOREFRONT_API_KEY ||
+    process.env.VITE_LELISA_ERP_API_KEY ||
+    process.env.VITE_EXTERNAL_INVENTORY_API_KEY ||
+    process.env.EXTERNAL_INVENTORY_API_KEY ||
+    ''
+  ).trim()
+};
+
+if (erpConfig.url && !/^https?:\/\//i.test(erpConfig.url)) {
+  erpConfig.url = 'https://' + erpConfig.url;
+}
+
+function convertErpItemToProduct(item: any): Product {
+  const variantId = String(item.variantId || item.id || item.sku || `variant-${Math.random()}`);
+  const name = String(item.productName || item.name || item.sku || 'Ethiopian Traditional Attire');
+  const price = Number(item.price) || 0;
+  const stock = item.availableQuantity !== undefined 
+    ? Number(item.availableQuantity) 
+    : (item.stock !== undefined ? Number(item.stock) : (item.inStock ? 10 : 0));
+
+  const size = item.size ? [String(item.size)] : ['S', 'M', 'L', 'XL'];
+  const color = item.color ? [String(item.color)] : ['White & Gold'];
+
+  return {
+    id: variantId,
+    name,
+    slug: `variant-${variantId}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    price,
+    stock,
+    sizes: size,
+    colors: color,
+    description: item.description || (item.sku ? `SKU: ${item.sku}. High-grade handwoven Ethiopian garment.` : 'Authentic handwoven Ethiopian garment.'),
+    category: item.category || 'Habesha Kemis',
+    region: item.region || 'National Heritage',
+    material: item.material || '100% Pure Handwoven Cotton',
+    gender: item.gender || 'WOMEN',
+    images: Array.isArray(item.images) && item.images.length > 0 ? item.images : (item.image ? [item.image] : ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80']),
+    rating: 4.9,
+    reviewCount: 10,
+    reviews: []
+  };
+}
+
+async function sendOrderToErp(order: Order) {
+  if (!erpConfig.url) return null;
+  try {
+    const payload = {
+      externalOrderId: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerEmail: order.customerEmail,
+      shippingAddress: `${order.shippingAddress}, ${order.city}`,
+      notes: `Order placed via Storefront (${order.paymentMethod})`,
+      items: order.items.map(item => ({
+        variantId: item.productId,
+        quantity: item.quantity
+      }))
+    };
+
+    console.log(`[ERP SERVER-TO-SERVER] Sending order ${order.orderNumber} to ${erpConfig.url}/api/public/orders`);
+    const headers = {
+      'Content-Type': 'application/json',
+      'x-api-key': erpConfig.apiKey,
+      'X-Inventory-Api-Key': erpConfig.apiKey
+    };
+
+    let erpRes;
+    try {
+      erpRes = await axios.post(`${erpConfig.url}/api/public/orders`, payload, { headers, timeout: 10000 });
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        erpRes = await axios.post(`${erpConfig.url}/inventory/reserve`, { items: payload.items }, { headers, timeout: 10000 });
+      } else {
+        throw err;
+      }
+    }
+    console.log(`[ERP ORDER SUCCESS]:`, erpRes.data);
+    return erpRes.data;
+  } catch (err: any) {
+    console.warn(`[ERP ORDER ERROR]:`, err.message, err.response?.data || '');
+    return null;
+  }
+}
+
 interface User {
   id: string;
   email: string;
@@ -233,6 +329,103 @@ async function startServer() {
     res.json({ status: 'ok', name: 'Habesha Threads REST API', timestamp: new Date().toISOString() });
   });
 
+  // POST /api/erp/config - Update ERP Configuration dynamically in server memory
+  app.post('/api/erp/config', (req, res) => {
+    const { url, apiKey } = req.body;
+    if (url !== undefined) {
+      let cleanedUrl = String(url).trim().replace(/\/+$/, '');
+      if (cleanedUrl && !/^https?:\/\//i.test(cleanedUrl)) {
+        cleanedUrl = 'https://' + cleanedUrl;
+      }
+      erpConfig.url = cleanedUrl;
+    }
+    if (apiKey !== undefined) erpConfig.apiKey = String(apiKey).trim();
+    console.log('[ERP CONFIG UPDATED]', { url: erpConfig.url, hasApiKey: Boolean(erpConfig.apiKey) });
+    res.json({
+      success: true,
+      url: erpConfig.url,
+      apiKey: erpConfig.apiKey ? '***PRESENT***' : 'MISSING',
+      isConnected: Boolean(erpConfig.url)
+    });
+  });
+
+  // GET /api/erp/status
+  app.get('/api/erp/status', (req, res) => {
+    res.json({
+      url: erpConfig.url,
+      hasApiKey: Boolean(erpConfig.apiKey),
+      isConnected: Boolean(erpConfig.url)
+    });
+  });
+
+  // GET /api/erp/catalog - Server-to-server ERP catalog fetch
+  app.get('/api/erp/catalog', async (req, res) => {
+    if (!erpConfig.url) {
+      return res.json({
+        source: 'MOCK_PREVIEW_INVENTORY',
+        connected: false,
+        reason: 'LELISA_ERP_URL is not configured.',
+        products: products
+      });
+    }
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-api-key': erpConfig.apiKey,
+        'X-Inventory-Api-Key': erpConfig.apiKey
+      };
+
+      let targetUrl = `${erpConfig.url}/api/public/catalog`;
+      console.log(`[ERP SERVER-TO-SERVER] Requesting catalog from: ${targetUrl}`);
+
+      let erpRes;
+      try {
+        erpRes = await axios.get(targetUrl, { headers, timeout: 10000 });
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          targetUrl = `${erpConfig.url}/products`;
+          console.log(`[ERP SERVER-TO-SERVER] Fallback catalog URL: ${targetUrl}`);
+          erpRes = await axios.get(targetUrl, { headers, timeout: 10000 });
+        } else {
+          throw err;
+        }
+      }
+
+      const data = erpRes.data;
+      const rawList = Array.isArray(data) ? data : (data.products || data.items || []);
+
+      if (rawList && rawList.length > 0) {
+        const converted = rawList.map((item: any) => convertErpItemToProduct(item));
+        return res.json({
+          source: 'EXTERNAL_CENTRAL_INVENTORY',
+          connected: true,
+          erpUrl: erpConfig.url,
+          count: converted.length,
+          products: converted
+        });
+      }
+
+      res.json({
+        source: 'EXTERNAL_CENTRAL_INVENTORY',
+        connected: true,
+        erpUrl: erpConfig.url,
+        count: 0,
+        products: []
+      });
+    } catch (err: any) {
+      console.warn('[STOREFRONT INTEGRATION FALLBACK]:', err.message, err.response?.data || '');
+      res.json({
+        source: 'MOCK_PREVIEW_INVENTORY',
+        connected: false,
+        erpUrl: erpConfig.url,
+        error: err.message,
+        errorDetails: err.response?.data || null,
+        products: products
+      });
+    }
+  });
+
   // GET /api/products - filtering, pagination, sorting
   app.get('/api/products', (req, res) => {
     const {
@@ -412,7 +605,9 @@ async function startServer() {
         items,
         subtotal,
         shippingCost,
-        totalAmount
+        totalAmount,
+        paymentCurrency,
+        paymentAmount
       } = req.body;
 
       if (!items || !Array.isArray(items) || items.length === 0) {
@@ -425,8 +620,8 @@ async function startServer() {
 
       // Generate clean Chapa transaction reference without dashes
       const txRef = `HT_CHP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-      const orderId = `ord-${Date.now()}`;
-      const orderNumber = `HT-${Math.floor(10000 + Math.random() * 90000)}`;
+      const orderId = req.body.orderId || `ord-${Date.now()}`;
+      const orderNumber = req.body.orderNumber || `HT-${Math.floor(10000 + Math.random() * 90000)}`;
 
       // Construct return and callback URLs
       let origin = (req.headers.origin as string) || process.env.APP_URL;
@@ -488,13 +683,18 @@ async function startServer() {
       const nameParts = (customerName || 'Habesha Customer').trim().split(' ');
       const firstName = nameParts[0] || 'Valued';
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Customer';
-      const formattedAmount = String(Number(totalAmount).toFixed(2));
+      const finalCurrency = paymentCurrency === 'USD' ? 'USD' : 'ETB';
+      const finalAmount = (paymentCurrency === 'USD' && paymentAmount) 
+        ? String(Number(paymentAmount).toFixed(2)) 
+        : String(Number(totalAmount).toFixed(2));
+      
+      const formattedAmount = finalAmount;
       const formattedPhone = cleanPhoneForChapa(customerPhone);
 
       // Construct clean Chapa payload.
       const chapaPayload: Record<string, any> = {
         amount: formattedAmount,
-        currency: 'ETB',
+        currency: finalCurrency,
         email: (customerEmail || 'customer@habeshathreads.com').trim(),
         first_name: firstName,
         last_name: lastName,
@@ -593,12 +793,16 @@ async function startServer() {
         // Find existing order
         let order = orders.find(o => o.txRef === txRef || o.transactionRef === txRef || o.id === txRef);
 
-        if (order) {
+        if (order && !order.isPaid) {
           order.isPaid = true;
           order.paymentStatus = 'paid';
           order.status = 'PROCESSING';
           order.paymentTimestamp = new Date().toISOString();
           order.paymentGatewayResponse = txData.reference || txRef;
+
+          sendOrderToErp(order).catch(err => {
+            console.warn('ERP verify order dispatch error:', err);
+          });
         }
 
         const receipt: PaymentReceipt = {
@@ -656,6 +860,10 @@ async function startServer() {
           order.paymentStatus = 'paid';
           order.status = 'PROCESSING';
           order.paymentTimestamp = new Date().toISOString();
+
+          sendOrderToErp(order).catch(err => {
+            console.warn('ERP webhook order dispatch error:', err);
+          });
         }
       }
       res.status(200).json({ status: 'success' });
@@ -675,6 +883,24 @@ async function startServer() {
     res.json(receipt);
   });
 
+  // POST /api/sync-order-statuses - Proxies status checks to ERP
+  app.post('/api/sync-order-statuses', async (req, res) => {
+    const { externalOrderIds } = req.body;
+    if (!erpConfig.url || !erpConfig.apiKey) {
+      return res.json({ statuses: [] });
+    }
+    try {
+      const erpRes = await axios.post(`${erpConfig.url}/api/public/orders/status`, { externalOrderIds }, {
+        headers: { 'x-api-key': erpConfig.apiKey, 'Content-Type': 'application/json' },
+        timeout: 5000
+      });
+      res.json(erpRes.data);
+    } catch (err: any) {
+      console.error('[ERP SYNC ERROR] Failed to fetch statuses:', err.message);
+      res.status(500).json({ error: 'Failed to sync with ERP' });
+    }
+  });
+
   // GET /api/orders
   app.get('/api/orders', (req, res) => {
     const { userId } = req.query;
@@ -692,6 +918,42 @@ async function startServer() {
       return res.status(404).json({ error: 'Order not found' });
     }
     res.json(order);
+  });
+
+  // POST /api/orders/dispatch-erp - Dispatches any order to ERP manually
+  app.post('/api/orders/dispatch-erp', async (req, res) => {
+    try {
+      const order = req.body;
+      const erpRes = await sendOrderToErp(order);
+      res.json({ success: true, erpRes });
+    } catch (err: any) {
+      console.warn('Manual ERP dispatch error:', err.message);
+      res.status(500).json({ error: 'Failed to dispatch to ERP' });
+    }
+  });
+
+  // POST /api/orders/dispatch-erp-cancel - Syncs cancellation to ERP
+  app.post('/api/orders/dispatch-erp-cancel', async (req, res) => {
+    try {
+      const { externalOrderId } = req.body;
+      if (erpConfig.url && erpConfig.apiKey) {
+        try {
+          const headers = {
+            'Content-Type': 'application/json',
+            'x-api-key': erpConfig.apiKey,
+            'X-Inventory-Api-Key': erpConfig.apiKey
+          };
+          await axios.post(`${erpConfig.url}/api/public/orders/cancel`, { externalOrderId }, { headers, timeout: 5000 });
+          console.log(`[ERP CANCEL SYNC] Sent cancel for ${externalOrderId}`);
+        } catch (erpErr: any) {
+          console.warn(`[ERP CANCEL SYNC ERROR] Failed for ${externalOrderId}:`, erpErr.message);
+        }
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      console.warn('Manual ERP cancel dispatch error:', err.message);
+      res.status(500).json({ error: 'Failed to dispatch cancel to ERP' });
+    }
   });
 
   // POST /api/orders
@@ -749,6 +1011,13 @@ async function startServer() {
     };
 
     orders.unshift(newOrder);
+
+    // Asynchronously transmit order to ERP server
+    if (newOrder.status === 'PROCESSING' || newOrder.isPaid) {
+      sendOrderToErp(newOrder).catch(err => {
+        console.warn('ERP order dispatch error:', err);
+      });
+    }
 
     // Save address to user if logged in
     if (userId && userId !== 'guest') {

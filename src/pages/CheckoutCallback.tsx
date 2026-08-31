@@ -49,7 +49,7 @@ export const CheckoutCallback: React.FC = () => {
             await FirestoreOrderService.updateOrderPayment(res.order.id, {
               isPaid: true,
               paymentStatus: 'paid',
-              status: 'PROCESSING',
+              status: 'received',
               paymentTimestamp: new Date().toISOString(),
               transactionRef: txRef
             });

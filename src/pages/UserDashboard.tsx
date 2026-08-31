@@ -55,13 +55,6 @@ export const UserDashboard: React.FC = () => {
       try {
         const oList = await OrderService.getOrders(user.id);
         setOrders(oList);
-
-        let wList = await WishlistService.getWishlist(user.id);
-        if (wList.length === 0 && wishlistIds.length > 0) {
-          const allRes = await ExternalInventoryService.getProducts({ limit: 100 });
-          wList = (allRes.products || []).filter(p => wishlistIds.includes(p.id));
-        }
-        setWishlistProducts(wList);
       } catch (err) {
         console.error('Failed fetching user dashboard data', err);
       } finally {
@@ -69,7 +62,24 @@ export const UserDashboard: React.FC = () => {
       }
     }
     fetchAccountData();
-  }, [user, wishlistIds]);
+  }, [user]);
+
+  useEffect(() => {
+    async function fetchWishlistProducts() {
+      if (wishlistIds.length === 0) {
+        setWishlistProducts([]);
+        return;
+      }
+      try {
+        const allRes = await ExternalInventoryService.getProducts({ limit: 200 });
+        const wList = (allRes.products || []).filter(p => wishlistIds.includes(p.id));
+        setWishlistProducts(wList);
+      } catch (err) {
+        console.error('Failed fetching wishlist products', err);
+      }
+    }
+    fetchWishlistProducts();
+  }, [wishlistIds]);
 
   if (!user) {
     return (
@@ -119,11 +129,40 @@ export const UserDashboard: React.FC = () => {
       await FirebaseAuthService.updateUserPhone(user.id, editPhoneVal.trim());
       setUser({ ...user, phone: editPhoneVal.trim() });
       setIsEditingPhone(false);
-      showToast('Phone Updated', 'Your contact phone number has been updated in Firebase!', 'success');
-    } catch (err) {
-      setUser({ ...user, phone: editPhoneVal.trim() });
-      setIsEditingPhone(false);
-      showToast('Phone Updated', 'Your contact phone number has been updated.', 'success');
+      showToast('Phone Updated', 'Your phone number has been saved.', 'success');
+    } catch (err: any) {
+      showToast('Update Failed', err.message || 'Could not update phone number', 'error');
+    }
+  };
+
+  const handleCancelOrder = async (orderToCancel: Order) => {
+    if (!window.confirm('Are you sure you want to cancel this order? If you paid via Chapa, a refund will be issued to your original payment method in 3-5 business days.')) {
+      return;
+    }
+    
+    try {
+      await OrderService.updateOrderStatus(orderToCancel.id, 'cancelled');
+      setOrders(prev => prev.map(o => o.id === orderToCancel.id ? { ...o, status: 'cancelled' } : o));
+      showToast('Order Cancelled', 'Your order has been successfully cancelled.', 'success');
+      
+      // Attempt to sync the cancellation to ERP
+      try {
+        await fetch('/api/orders/dispatch-erp-cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ externalOrderId: orderToCancel.externalOrderId || orderToCancel.orderNumber })
+        });
+        
+        // Also unreserve items in local UI/fallback state
+        const itemsToUnreserve = orderToCancel.items.map(i => ({ productId: (i as any).productId || i.id, quantity: i.quantity }));
+        await ExternalInventoryService.notifyOrderCancelled(itemsToUnreserve, orderToCancel.externalOrderId || orderToCancel.orderNumber);
+      } catch (err) {
+        console.warn('ERP cancellation sync error:', err);
+      }
+      
+    } catch (err: any) {
+      console.error('Cancel error:', err);
+      showToast('Cancellation Failed', 'There was a problem cancelling your order. Please contact support.', 'error');
     }
   };
 
@@ -193,10 +232,10 @@ export const UserDashboard: React.FC = () => {
             <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-bold">
               Habesha Heritage Circle
             </span>
-            <h1 className="text-3xl md:text-4xl font-serif font-light text-[#1A1A1A] mt-1">
+            <h1 className="text-4xl md:text-[2.75rem] font-serif font-light text-[#1A1A1A] mt-2 leading-tight">
               Welcome, {user.fullName}
             </h1>
-            <p className="text-xs text-gray-500 font-light mt-1">
+            <p className="text-sm text-gray-500 font-light mt-2">
               Email: {user.email} • Role: {user.role}
             </p>
           </div>
@@ -211,10 +250,10 @@ export const UserDashboard: React.FC = () => {
         </div>
 
         {/* Dashboard Tabs */}
-        <div className="flex border-b border-[#E5E1DA] mb-8 gap-4 overflow-x-auto">
+        <div className="flex border-b border-[#E5E1DA] mb-10 gap-6 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setSearchParams({ tab: 'orders' })}
-            className={`pb-3 text-xs uppercase tracking-[0.2em] font-bold border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
+            className={`pb-4 text-xs uppercase tracking-[0.25em] font-bold border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
               activeTab === 'orders'
                 ? 'border-[#C5A059] text-[#1A1A1A]'
                 : 'border-transparent text-gray-400 hover:text-black'
@@ -226,7 +265,7 @@ export const UserDashboard: React.FC = () => {
 
           <button
             onClick={() => setSearchParams({ tab: 'wishlist' })}
-            className={`pb-3 text-xs uppercase tracking-[0.2em] font-bold border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
+            className={`pb-4 text-[11px] uppercase tracking-[0.25em] font-bold border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
               activeTab === 'wishlist'
                 ? 'border-[#C5A059] text-[#1A1A1A]'
                 : 'border-transparent text-gray-400 hover:text-black'
@@ -238,7 +277,7 @@ export const UserDashboard: React.FC = () => {
 
           <button
             onClick={() => setSearchParams({ tab: 'profile' })}
-            className={`pb-3 text-xs uppercase tracking-[0.2em] font-bold border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
+            className={`pb-4 text-[11px] uppercase tracking-[0.25em] font-bold border-b-2 transition-colors flex items-center gap-2 shrink-0 ${
               activeTab === 'profile'
                 ? 'border-[#C5A059] text-[#1A1A1A]'
                 : 'border-transparent text-gray-400 hover:text-black'
@@ -252,6 +291,19 @@ export const UserDashboard: React.FC = () => {
         {/* Tab 1: Orders */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
+            
+            <div className="bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm p-4 flex flex-col md:flex-row gap-4 items-start md:items-center">
+              <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider mb-1">Cancellations &amp; Support</h3>
+                <p className="text-[11px] text-gray-600 leading-relaxed max-w-3xl">
+                  You can instantly cancel your order below if its status is still <strong>RECEIVED (NEW)</strong>. Once it changes to "Preparing" or "Shipped", please contact our support team to request a manual cancellation. Refunds for Chapa digital payments are processed within 3-5 business days back to your original payment method. Cash on Delivery orders can be safely cancelled before dispatch.
+                </p>
+              </div>
+            </div>
+
             {loading ? (
               <div className="h-48 bg-gray-100 animate-pulse rounded-sm"></div>
             ) : orders.length === 0 ? (
@@ -270,7 +322,7 @@ export const UserDashboard: React.FC = () => {
               </div>
             ) : (
               orders.map(order => (
-                <div key={order.id} className="bg-white border border-[#E5E1DA] rounded-sm p-6">
+                <div key={order.id} className="bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm p-6">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-[#E5E1DA] gap-2">
                     <div>
                       <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">
@@ -292,19 +344,21 @@ export const UserDashboard: React.FC = () => {
                       </span>
                       <span
                         className={`px-3 py-1 text-[10px] uppercase tracking-widest font-bold rounded-sm ${
-                          order.status === 'DELIVERED'
-                            ? 'bg-green-100 text-green-800'
-                            : order.status === 'SHIPPED'
+                          order.status === 'completed'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : order.status === 'shipped' || order.status === 'ready'
                             ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
+                            : order.status === 'cancelled'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800'
                         }`}
                       >
-                        {order.status}
+                        {order.status === 'received' ? 'RECEIVED (NEW)' : order.status === 'ready' ? 'READY FOR PICKUP' : order.status}
                       </span>
                       <span className="text-sm font-serif font-bold text-[#1A1A1A]">
                         {formatPrice(order.totalAmount)}
                       </span>
-                      {(!order.isPaid || order.paymentMethod === 'CASH_ON_DELIVERY') && (
+                      {(!order.isPaid || order.paymentMethod === 'CASH_ON_DELIVERY') && order.status !== 'cancelled' && order.status !== 'completed' && (
                         <button
                           type="button"
                           onClick={() => {
@@ -315,6 +369,16 @@ export const UserDashboard: React.FC = () => {
                           className="px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold rounded-sm bg-[#C5A059] hover:bg-[#1A1A1A] text-white transition-colors flex items-center gap-1 shadow-sm"
                         >
                           ⚡ Pay Bill Online
+                        </button>
+                      )}
+                      
+                      {(order.status === 'received' || order.status === 'pending') && (
+                        <button
+                          type="button"
+                          onClick={() => handleCancelOrder(order)}
+                          className="px-2.5 py-1 text-[10px] uppercase tracking-widest font-bold rounded-sm bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors flex items-center gap-1"
+                        >
+                          Cancel Order
                         </button>
                       )}
                     </div>
@@ -395,7 +459,7 @@ export const UserDashboard: React.FC = () => {
         {/* Tab 3: Addresses & Profile */}
         {activeTab === 'profile' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-white p-6 border border-[#E5E1DA] rounded-sm">
+            <div className="bg-white text-[#1A1A1A] p-6 border border-[#E5E1DA] rounded-sm">
               <h3 className="text-lg font-serif font-light text-[#1A1A1A] mb-4">Account Information</h3>
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between py-2 border-b border-gray-100">
@@ -535,7 +599,7 @@ export const UserDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white p-6 border border-[#E5E1DA] rounded-sm">
+            <div className="bg-white text-[#1A1A1A] p-6 border border-[#E5E1DA] rounded-sm">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-serif font-light text-[#1A1A1A]">Saved Delivery Addresses</h3>
                 <button
@@ -548,7 +612,7 @@ export const UserDashboard: React.FC = () => {
               </div>
 
               {isAddingAddr && (
-                <form onSubmit={handleAddAddress} className="mb-6 p-4 bg-[#FCFBFA] border border-[#E5E1DA] rounded-sm space-y-3">
+                <form onSubmit={handleAddAddress} className="mb-6 p-4 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm space-y-3">
                   <h4 className="text-xs font-bold text-[#1A1A1A]">Add Address</h4>
                   <div>
                     <label className="block text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-1">
@@ -622,7 +686,7 @@ export const UserDashboard: React.FC = () => {
         {/* Online Bill Payment Modal */}
         {selectedBillOrder && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="bg-white w-full max-w-lg rounded-sm p-6 md:p-8 border border-[#E5E1DA] shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="bg-white text-[#1A1A1A] w-full max-w-lg rounded-sm p-6 md:p-8 border border-[#E5E1DA] shadow-2xl relative max-h-[90vh] overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setSelectedBillOrder(null)}
@@ -649,7 +713,7 @@ export const UserDashboard: React.FC = () => {
               )}
 
               <form onSubmit={handlePayBillOnline} className="space-y-4 text-xs">
-                <div className="bg-[#FCFBFA] p-4 border border-[#E5E1DA] rounded-sm space-y-2">
+                <div className="bg-[#FCFBFA] text-[#1A1A1A] p-4 border border-[#E5E1DA] rounded-sm space-y-2">
                   <div className="flex items-center gap-2 text-green-700 font-bold">
                     <ShieldCheck className="w-4 h-4 text-green-600" />
                     <span>Chapa Secure Hosted Checkout</span>

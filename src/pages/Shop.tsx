@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ProductService } from '../services/api.js';
 import { Product, CategoryName, RegionName } from '../types/index.js';
 import { ProductCard } from '../components/ProductCard.js';
+import { SEO } from '../components/SEO.js';
 import { SlidersHorizontal, Grid, List, X, Search, ChevronDown, RotateCcw } from 'lucide-react';
 import { useApp } from '../context/AppContext.js';
 
@@ -25,16 +26,15 @@ export const Shop: React.FC = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const categories: Array<CategoryName | 'All'> = [
+  const categories: Array<string> = [
     'All',
     'Habesha Kemis',
-    "Men's Traditional Wear",
-    'Wedding Collection',
+    'T-Shirts',
     "Children's Wear",
-    'Jewelry',
+    'Sweaters',
+    'Bags',
     'Scarves',
-    'Shoes',
-    'Bags'
+    'Other Traditional'
   ];
 
   const regions: Array<RegionName | 'All'> = [
@@ -94,6 +94,11 @@ export const Shop: React.FC = () => {
 
   return (
     <div className="bg-[#FCFBFA] min-h-screen py-10 px-6 md:px-16">
+      <SEO 
+        title="Shop Collections"
+        description="Shop authentic Ethiopian traditional clothing. Browse our curated collection of Habesha Kemis, Wedding Collections, Scarves, and Handwoven Men's Traditional Wear."
+        keywords="Shop Habesha Kemis, Buy Ethiopian Clothing, Traditional African Fashion, Ethiopian Wedding Dress, Handwoven Fashion"
+      />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="border-b border-[#E5E1DA] pb-8 mb-8">
@@ -178,7 +183,7 @@ export const Shop: React.FC = () => {
                 placeholder={t.searchPlaceholder}
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
-                className="w-full sm:w-56 pl-3 pr-8 py-2 text-xs bg-white border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                className="w-full sm:w-56 pl-3 pr-8 py-2 text-xs bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
               />
               <button type="submit" className="absolute right-2.5 top-2.5 text-gray-400 hover:text-black">
                 <Search className="w-3.5 h-3.5" />
@@ -197,7 +202,7 @@ export const Shop: React.FC = () => {
               <option value="newest">{t.sortNewest}</option>
             </select>
 
-            <div className="flex border border-[#E5E1DA] rounded-sm bg-white overflow-hidden">
+            <div className="flex border border-[#E5E1DA] rounded-sm bg-white text-[#1A1A1A] overflow-hidden">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`p-2 transition-colors ${
@@ -222,7 +227,7 @@ export const Shop: React.FC = () => {
 
         {/* Expandable Filter Panel */}
         {isFilterOpen && (
-          <div className="bg-white p-6 border border-[#E5E1DA] rounded-sm mb-8 animate-in fade-in duration-200">
+          <div className="bg-white text-[#1A1A1A] p-6 border border-[#E5E1DA] rounded-sm mb-8 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Category Filter */}
               <div>
@@ -301,7 +306,7 @@ export const Shop: React.FC = () => {
             ))}
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-20 bg-white border border-[#E5E1DA] rounded-sm">
+          <div className="text-center py-20 bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm">
             <h3 className="text-2xl font-serif text-[#1A1A1A] mb-2">{t.noGarmentsFound}</h3>
             <p className="text-xs text-gray-500 max-w-md mx-auto mb-6">
               {t.noGarmentsSubtitle}
@@ -324,7 +329,7 @@ export const Shop: React.FC = () => {
             {products.map(prod => (
               <div
                 key={prod.id}
-                className="bg-white border border-[#E5E1DA] p-4 rounded-sm flex flex-col sm:flex-row gap-6 items-center hover:border-[#C5A059] transition-colors"
+                className="bg-white text-[#1A1A1A] border border-[#E5E1DA] p-4 rounded-sm flex flex-col sm:flex-row gap-6 items-center hover:border-[#C5A059] transition-colors"
               >
                 <img
                   src={prod.images[0]}

@@ -191,9 +191,9 @@ export const ExternalInventoryService = {
       const serverRes = await fetch(`/api/erp/catalog?${query.toString()}`);
       if (serverRes.ok) {
         const data = await serverRes.json();
-        if (data.source === 'EXTERNAL_CENTRAL_INVENTORY' && Array.isArray(data.products)) {
+        if (Array.isArray(data.products)) {
           rawList = data.products.map((p: any) => normalizeProduct(p));
-          source = 'EXTERNAL_CENTRAL_INVENTORY';
+          source = data.source || 'MOCK_PREVIEW_INVENTORY';
         }
       }
     } catch (err) {
@@ -273,24 +273,10 @@ export const ExternalInventoryService = {
       rawList = rawList.map((p, index) => {
         const nameLower = p.name.toLowerCase();
         
-        // Category Translations
-        if (nameLower.includes('borsaa') || nameLower.includes('borsa')) {
-          p.category = 'Bags';
-        } else if (nameLower.includes('shamizii') || nameLower.includes('shamiizii') || nameLower.includes('shamiz')) {
-          p.category = 'T-Shirts' as any;
-        } else if (nameLower.includes('shurabii') || nameLower.includes('shurabi')) {
-          p.category = 'Sweaters' as any;
-        } else if (nameLower.includes('daima') || nameLower.includes('da\'iima')) {
-          p.category = "Children's Wear";
-        } else if (nameLower.includes('scarf') || nameLower.includes('netela')) {
-          p.category = 'Scarves';
-        } else if (nameLower.includes('kemis') || nameLower.includes('qemis')) {
-          p.category = 'Habesha Kemis';
-        } else {
-          // If it doesn't match our specific new ones, but has a generic one, keep it or set to Other
-          if (p.category === 'Habesha Kemis' && nameLower.includes('homo')) {
-            p.category = 'Other Traditional' as any;
-          }
+        // We now respect the category fetched from the ERP or Admin Dashboard.
+        // If it's completely missing, we default it to Habesha Kemis.
+        if (!p.category) {
+            p.category = 'Habesha Kemis';
         }
         
         // Assign tags based on array index so we have a reliable spread
@@ -323,22 +309,15 @@ export const ExternalInventoryService = {
     };
   },
   async getProduct(idOrSlug: string): Promise<Product | null> {
-    if (EXTERNAL_INVENTORY_CONFIG.isExternalConnected && EXTERNAL_INVENTORY_CONFIG.baseUrl) {
-      try {
-        const serverRes = await fetch(`/api/erp/catalog`);
-        if (serverRes.ok) {
-          const data = await serverRes.json();
-          if (data.source === 'EXTERNAL_CENTRAL_INVENTORY' && Array.isArray(data.products)) {
-            const normalizedProducts = data.products.map((p: any) => normalizeProduct(p));
-            const found = normalizedProducts.find((p: any) => p.id === idOrSlug || p.slug === idOrSlug);
-            if (found) return found;
-          }
-        }
-      } catch (err) {
-        console.warn('Central Inventory API getProduct notice (using local inventory fallback):', err);
+    try {
+      const res = await fetch(`/api/products/${idOrSlug}`);
+      if (res.ok) {
+        const data = await res.json();
+        return normalizeProduct(data);
       }
+    } catch (err) {
+      console.warn('Could not fetch product from server API', err);
     }
-
     const found = SAMPLE_PRODUCTS.find(p => p.id === idOrSlug || p.slug === idOrSlug);
     return found ? normalizeProduct(found) : null;
   },
@@ -364,14 +343,11 @@ export const ExternalInventoryService = {
       }
     }
 
-    const baseCategories = [
+        const baseCategories = [
       { id: 'cat-1', name: 'Habesha Kemis', slug: 'habesha-kemis', description: 'Handwoven Ethiopian cultural dresses with intricate Tilet embroidery.', image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80' },
       { id: 'cat-2', name: 'T-Shirts', slug: 't-shirts', description: 'Authentic Ethiopian cultural shamiizii and patterned shirts.', image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80' },
       { id: 'cat-3', name: 'Sweaters', slug: 'sweaters', description: 'Warm and comfortable shurabii with traditional accents.', image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&q=80' },
-      { id: 'cat-4', name: "Children's Wear", slug: 'childrens-wear', description: 'Charming cultural outfits for boys and girls.', image: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?auto=format&fit=crop&w=800&q=80' },
-      { id: 'cat-8', name: 'Bags', slug: 'bags', description: 'Borsaa - Leather and woven Tilet totes, evening clutches, and Agelgil bags.', image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=800&q=80' },
-      { id: 'cat-6', name: 'Scarves', slug: 'scarves', description: 'Soft handwoven Netela, Kuta, and Gabi wraps.', image: 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?auto=format&fit=crop&w=800&q=80' },
-      { id: 'cat-9', name: 'Other Traditional', slug: 'other', description: 'Unique cultural attire and heritage accessories.', image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80' }
+      { id: 'cat-4', name: 'Bags', slug: 'bags', description: 'Borsaa - Leather and woven Tilet totes, evening clutches, and Agelgil bags.', image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=800&q=80' }
     ];
 
     return baseCategories.map(cat => ({

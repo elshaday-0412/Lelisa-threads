@@ -1,21 +1,23 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useApp } from '../context/AppContext.js';
 import { ArrowRight, Sparkles, Award, ShieldCheck } from 'lucide-react';
 
 export const CulturalHeritage: React.FC = () => {
+  const { t } = useApp();
   return (
     <div className="bg-[#FCFBFA] text-[#1A1A1A] min-h-screen">
       {/* Hero Banner */}
       <section className="py-24 px-6 md:px-16 border-b border-[#E5E1DA] text-center">
         <div className="max-w-4xl mx-auto">
           <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
-            The Soul of Ethiopia
+            {t.heritageHeroSubtitle}
           </span>
           <h1 className="text-4xl md:text-6xl font-serif font-light text-[#1A1A1A] mt-2 mb-6">
-            The Living Heritage of Shemma &amp; Tilet
+            {t.heritageHeroTitle}
           </h1>
           <p className="text-xs md:text-sm text-gray-600 font-light max-w-2xl mx-auto leading-relaxed">
-            For over three millennia, the traditional handwoven Ethiopian dress has been a canvas of identity, spirituality, and celebration. Discover the artistry behind every Wanofi Design creation.
+            {t.heritageHeroDesc}
           </p>
         </div>
       </section>
@@ -32,16 +34,16 @@ export const CulturalHeritage: React.FC = () => {
           </div>
           <div>
             <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-bold">
-              Step 1: Spun by Hand
+              {t.heritageStep1Title}
             </span>
             <h2 className="text-3xl font-serif font-light text-[#1A1A1A] mt-2 mb-4">
-              The Pure Ethiopian Cotton Shemma
+              {t.heritageStep1Heading}
             </h2>
             <p className="text-xs sm:text-sm text-gray-600 font-light leading-relaxed mb-4">
-              Garment creation begins in the highlands of Ethiopia, where organic, long-staple cotton is harvested. Women artisans spin the raw fleece into fine cotton thread using a traditional spindle known as a &ldquo;enzirt.&rdquo;
+              {t.heritageStep1Desc1}
             </p>
             <p className="text-xs sm:text-sm text-gray-600 font-light leading-relaxed">
-              Once spun, master weavers—known as &ldquo;Shemane&rdquo;—sit at wooden handlooms to weave the fabric strip by strip. The result is a luminous white cotton cloth that is breathable in summer yet insulating in mountain breezes.
+              {t.heritageStep1Desc2}
             </p>
           </div>
         </div>
@@ -52,16 +54,16 @@ export const CulturalHeritage: React.FC = () => {
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="order-2 lg:order-1">
             <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-bold">
-              Step 2: Sacred Geometry
+              {t.heritageStep2Title}
             </span>
             <h2 className="text-3xl font-serif font-light text-[#1A1A1A] mt-2 mb-4">
-              Tilet: The Language of Borders
+              {t.heritageStep2Heading}
             </h2>
             <p className="text-xs sm:text-sm text-gray-600 font-light leading-relaxed mb-4">
-              The defining glory of every Habesha Kemis is the &ldquo;Tilet&rdquo;—the intricate decorative border woven along the hem, sleeves, and center bodice. Using silk and metallic 24K gold threads, weavers embed ancient motifs.
+              {t.heritageStep2Desc1}
             </p>
             <p className="text-xs sm:text-sm text-gray-600 font-light leading-relaxed">
-              Common motifs include the Lalibela cross, the Axumite obelisk steps, and royal diamond patterns. A complex bridal Tilet can take up to three weeks of continuous weaving to complete.
+              {t.heritageStep2Desc2}
             </p>
           </div>
           <div className="order-1 lg:order-2 aspect-[4/3] bg-[#F4F1ED] rounded-sm overflow-hidden border border-[#E5E1DA]">
@@ -79,47 +81,47 @@ export const CulturalHeritage: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-14">
             <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-bold">
-              Diversity in Unity
+              {t.heritageRegionsTitle}
             </span>
             <h2 className="text-3xl md:text-4xl font-serif font-light text-[#1A1A1A] mt-2">
-              Regional Dress Across Ethiopia
+              {t.heritageRegionsHeading}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA] text-[#1A1A1A]">
               <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
-                Northern Highlands
+                {t.heritageRegion1Name}
               </span>
               <h3 className="text-xl font-serif font-light text-[#1A1A1A] mt-1 mb-3">
-                Amhara &amp; Tigray Traditions
+                {t.heritageRegion1Heading}
               </h3>
               <p className="text-xs text-gray-600 font-light leading-relaxed">
-                Known for immaculate white Shemma dresses with gold and royal blue Tilet bands. Women style their hair in intricate Sheruba braids and drape matching Netela shawls during church services.
+                {t.heritageRegion1Desc}
               </p>
             </div>
 
             <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA] text-[#1A1A1A]">
               <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
-                Southern &amp; Central Valleys
+                {t.heritageRegion2Name}
               </span>
               <h3 className="text-xl font-serif font-light text-[#1A1A1A] mt-1 mb-3">
-                Oromo &amp; Gurage Heritage
+                {t.heritageRegion2Heading}
               </h3>
               <p className="text-xs text-gray-600 font-light leading-relaxed">
-                Bold red, black, and white geometric Woyya robes worn during Irreecha and wedding festivities, celebrating agricultural abundance and the democratic Gadaa heritage.
+                {t.heritageRegion2Desc}
               </p>
             </div>
 
             <div className="p-8 border border-[#E5E1DA] rounded-sm bg-[#FCFBFA] text-[#1A1A1A]">
               <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
-                Eastern &amp; Walled City
+                {t.heritageRegion3Name}
               </span>
               <h3 className="text-xl font-serif font-light text-[#1A1A1A] mt-1 mb-3">
-                Harari Cultural Elegance
+                {t.heritageRegion3Heading}
               </h3>
               <p className="text-xs text-gray-600 font-light leading-relaxed">
-                Rich silk and cotton tunics with vibrant crimson and saffron embroidery, paired with heirloom silver jewelry and headpieces worn in the historic walled city of Harar.
+                {t.heritageRegion3Desc}
               </p>
             </div>
           </div>
@@ -130,16 +132,16 @@ export const CulturalHeritage: React.FC = () => {
       <section className="py-20 px-6 md:px-16 text-center">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl font-serif font-light text-[#1A1A1A] mb-4">
-            Wear Your Heritage with Pride
+            {t.heritageCtaTitle}
           </h2>
           <p className="text-xs text-gray-600 font-light mb-8">
-            Explore our curated catalog of authentic, handwoven garments crafted by master artisans in Addis Ababa and across Ethiopia.
+            {t.heritageCtaDesc}
           </p>
           <Link
             to="/shop"
             className="px-8 py-4 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold rounded-sm inline-flex items-center gap-2 transition-all shadow-lg"
           >
-            Explore Marketplace <ArrowRight className="w-4 h-4" />
+            {t.heritageCtaBtn} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </section>

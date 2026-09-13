@@ -30,11 +30,8 @@ export const Shop: React.FC = () => {
     'All',
     'Habesha Kemis',
     'T-Shirts',
-    "Children's Wear",
-    'Sweaters',
     'Bags',
-    'Scarves',
-    'Other Traditional'
+    'Sweaters'
   ];
 
   const regions: Array<RegionName | 'All'> = [
@@ -96,7 +93,7 @@ export const Shop: React.FC = () => {
     <div className="bg-[#FCFBFA] min-h-screen py-10 px-6 md:px-16">
       <SEO 
         title="Shop Collections"
-        description="Shop authentic Ethiopian traditional clothing. Browse our curated collection of Habesha Kemis, Wedding Collections, Scarves, and Handwoven Men's Traditional Wear."
+        description="Shop authentic Ethiopian traditional clothing. Browse our curated collection of Habesha Kemis, T-Shirts, Bags, and Sweaters."
         keywords="Shop Habesha Kemis, Buy Ethiopian Clothing, Traditional African Fashion, Ethiopian Wedding Dress, Handwoven Fashion"
       />
       <div className="max-w-7xl mx-auto">

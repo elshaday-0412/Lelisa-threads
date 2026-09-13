@@ -1,12 +1,11 @@
 {
   "projectId": "lelisa-threads",
-  "appId": "1:278475225754:web:9de9514159c0e052f77d23",
+  "appId": "1:278475225754:web:c43b252d691521dbf77d23",
   "apiKey": "AIzaSyBLfXbjtWUfjb_q-Td6UEVEarPaZGjLTFs",
   "authDomain": "lelisa-threads.firebaseapp.com",
   "firestoreDatabaseId": "(default)",
   "storageBucket": "lelisa-threads.firebasestorage.app",
   "messagingSenderId": "278475225754",
-  "measurementId": "G-MBDY042QSC",
-  "oAuthClientId": "",
+  "measurementId": "",
   "recaptchaSiteKey": ""
 }

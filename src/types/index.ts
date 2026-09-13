@@ -2,16 +2,9 @@
 
 export type CategoryName =
   | 'Habesha Kemis'
-  | "Men's Traditional Wear"
-  | "Children's Wear"
-  | 'Wedding Collection'
-  | 'Jewelry'
-  | 'Scarves'
-  | 'Shoes'
-  | 'Bags'
   | 'T-Shirts'
   | 'Sweaters'
-  | 'Other Traditional';
+  | 'Bags';
 
 export type RegionName =
   | 'Amhara'

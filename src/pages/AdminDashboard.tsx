@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext.js';
-import { ProductService, OrderService } from '../services/api.js';
+import { ProductService, OrderService, AdminService } from '../services/api.js';
 import { Product, Order, CategoryName, RegionName } from '../types/index.js';
 import { EXTERNAL_INVENTORY_CONFIG, saveErpConfig } from '../services/externalInventoryService.js';
+import { FirestoreStorageService } from '../services/firebaseService.js';
 import {
   BarChart3,
   Package,
@@ -27,6 +28,8 @@ import {
   CreditCard,
   FileText,
   Tag,
+  
+  LogOut,
   Database,
   Globe,
   Key,
@@ -35,7 +38,7 @@ import {
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
-  const { user, formatPrice, showToast } = useApp();
+  const { user, formatPrice, showToast, logout } = useApp();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -54,6 +57,8 @@ export const AdminDashboard: React.FC = () => {
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [selectedOrderDossier, setSelectedOrderDossier] = useState<Order | null>(null);
   const [selectedProductBuyers, setSelectedProductBuyers] = useState<Product | null>(null);
 
@@ -65,14 +70,54 @@ export const AdminDashboard: React.FC = () => {
   const [newCategory, setNewCategory] = useState<CategoryName>('Habesha Kemis');
   const [newRegion, setNewRegion] = useState<RegionName>('Amhara');
   const [newMaterial, setNewMaterial] = useState('100% Handwoven Organic Ethiopian Cotton Shemma');
+  const [newSizes, setNewSizes] = useState('S, M, L, XL');
   const [newDesc, setNewDesc] = useState('');
   const [newImage, setNewImage] = useState(
     'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80'
   );
   const [newGender, setNewGender] = useState<'WOMEN' | 'MEN' | 'UNISEX' | 'KIDS'>('WOMEN');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
-    loadAdminData();
+    let unsubscribe = () => {};
+
+    async function loadAdminDataInitial() {
+      setLoading(true);
+      try {
+        const pRes = await ProductService.getProducts({ limit: 100 });
+        setProducts(pRes.products);
+
+        const oRes = await OrderService.getAllOrders();
+        setOrders(oRes);
+      } catch (err) {
+        console.error('Failed loading admin data', err);
+      } finally {
+        setLoading(false);
+      }
+
+      // Smooth fast-refresh via Firestore realtime listener (instant updates)
+      try {
+        const { FirestoreOrderService } = await import('../services/firebaseService.js');
+        unsubscribe = FirestoreOrderService.subscribeToOrders('user-admin', (updatedOrders) => {
+          setOrders(updatedOrders);
+          
+          // Also update the selected dossier if it's open so it stays smooth
+          setSelectedOrderDossier(prev => {
+            if (!prev) return null;
+            const updated = updatedOrders.find(o => o.id === prev.id);
+            return updated || prev;
+          });
+        });
+      } catch (err) {
+        console.warn('Could not setup smooth realtime admin orders listener', err);
+      }
+    }
+
+    loadAdminDataInitial();
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   async function loadAdminData() {
@@ -129,7 +174,7 @@ export const AdminDashboard: React.FC = () => {
   const handleAdjustStock = async (prodId: string, currentStock: number, delta: number) => {
     const newStockVal = Math.max(0, currentStock + delta);
     try {
-      await ProductService.updateStock(prodId, newStockVal);
+      await AdminService.updateProduct(prodId, { stock: newStockVal });
       setProducts(prev => prev.map(p => (p.id === prodId ? { ...p, stock: newStockVal } : p)));
       showToast('Stock Adjusted', `Stock quantity updated to ${newStockVal} units.`, 'success');
     } catch (err) {
@@ -141,7 +186,7 @@ export const AdminDashboard: React.FC = () => {
   const handleDirectStockUpdate = async (prodId: string, value: string) => {
     const newStockVal = Math.max(0, parseInt(value, 10) || 0);
     try {
-      await ProductService.updateStock(prodId, newStockVal);
+      await AdminService.updateProduct(prodId, { stock: newStockVal });
       setProducts(prev => prev.map(p => (p.id === prodId ? { ...p, stock: newStockVal } : p)));
       showToast('Stock Saved', `Stock set to ${newStockVal} units.`, 'success');
     } catch (err) {
@@ -153,11 +198,48 @@ export const AdminDashboard: React.FC = () => {
   const handleDeleteProduct = async (prodId: string, name: string) => {
     if (!window.confirm(`Are you sure you want to delete "${name}" entirely from the catalog? This action cannot be undone.`)) return;
     try {
-      await ProductService.deleteProduct(prodId);
+      await AdminService.deleteProduct(prodId);
       setProducts(prev => prev.filter(p => p.id !== prodId));
       showToast('Product Deleted', `"${name}" has been permanently removed.`, 'info');
     } catch (err) {
       showToast('Error', 'Failed to delete product.', 'error');
+    }
+  };
+
+    const handleEditProductClick = (product: Product) => {
+    setEditingProductId(product.id);
+    setNewName(product.name);
+    setNewPrice(product.price);
+    setNewOrigPrice(product.originalPrice);
+    setNewStock(product.stock || 0);
+    setNewCategory(product.category as CategoryName);
+    setNewRegion(product.region as RegionName);
+    setNewDesc(product.description || '');
+    setNewImage(product.images?.[0] || '');
+    setNewSizes(Array.isArray(product.sizes) ? product.sizes.join(', ') : (product.sizes ? String(product.sizes) : 'S, M, L, XL'));
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProductId || !newName.trim()) return;
+    try {
+      const updated = await AdminService.updateProduct(editingProductId, {
+        name: newName,
+        category: newCategory,
+        region: newRegion,
+        sizes: newSizes.split(',').map(s => s.trim()).filter(Boolean),
+        price: Number(newPrice),
+        originalPrice: newOrigPrice ? Number(newOrigPrice) : undefined,
+        images: newImage ? [newImage] : ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80'],
+        description: newDesc,
+        stock: Number(newStock)
+      });
+      setProducts(prev => prev.map(p => p.id === editingProductId ? updated : p));
+      setIsEditModalOpen(false);
+      showToast('Garment Updated', `"${updated.name}" has been successfully updated.`, 'success');
+    } catch (err) {
+      console.error(err); console.error(err); showToast('Error', 'Failed to update garment: ' + (err.message || 'Unknown'), 'error');
     }
   };
 
@@ -166,19 +248,19 @@ export const AdminDashboard: React.FC = () => {
     if (!newName.trim()) return;
 
     try {
-      const created = await ProductService.createProduct({
+      const created = await AdminService.createProduct({
         name: newName,
         slug: newName.toLowerCase().replace(/\s+/g, '-'),
         category: newCategory,
         region: newRegion,
         price: Number(newPrice),
         originalPrice: newOrigPrice ? Number(newOrigPrice) : undefined,
-        images: [newImage],
+        images: newImage ? [newImage] : ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80'],
         description: newDesc || `${newName} handwoven Shemma with royal Tilet embroidery from ${newRegion}.`,
         rating: 5.0,
         reviewCount: 1,
         stock: Number(newStock),
-        sizes: ['XS', 'S', 'M', 'L', 'XL', 'Custom Measurement'],
+        sizes: newSizes.split(',').map(s => s.trim()).filter(Boolean),
         colors: ['White & Gold Tilet', 'Royal Blue Accent', 'Emerald Green Tilet'],
         material: newMaterial,
         featured: true,
@@ -190,6 +272,15 @@ export const AdminDashboard: React.FC = () => {
       setProducts(prev => [created, ...prev]);
       setIsAddModalOpen(false);
       setNewName('');
+      setNewPrice(4500);
+      setNewOrigPrice(5200);
+      setNewStock(12);
+      setNewCategory('Habesha Kemis');
+      setNewRegion('Amhara');
+      setNewMaterial('100% Handwoven Organic Ethiopian Cotton Shemma');
+      setNewDesc('');
+      setNewImage('https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80');
+      setNewGender('WOMEN');
       showToast('Product Created', `${created.name} is now live in the store.`, 'success');
     } catch (err) {
       showToast('Error', 'Failed creating product.', 'error');
@@ -210,12 +301,13 @@ export const AdminDashboard: React.FC = () => {
   };
 
   // Analytics calculations
-  const totalRevenue = orders.reduce((acc, curr) => acc + curr.totalAmount, 0);
+  const totalRevenue = orders.filter(o => o.status !== 'cancelled').reduce((acc, curr) => acc + curr.totalAmount, 0);
   const totalStockUnits = products.reduce((sum, p) => sum + (p.stock || 0), 0);
   const totalInventoryValue = products.reduce((sum, p) => sum + p.price * (p.stock || 0), 0);
   const lowStockProducts = products.filter(p => (p.stock || 0) <= 5);
   const outOfStockProducts = products.filter(p => (p.stock || 0) === 0);
-  const avgOrderValue = orders.length > 0 ? Math.round(totalRevenue / orders.length) : 0;
+  const validOrders = orders.filter(o => o.status !== 'cancelled');
+  const avgOrderValue = validOrders.length > 0 ? Math.round(totalRevenue / validOrders.length) : 0;
 
   // Regional breakdown
   const regionalCounts: Record<string, number> = {};
@@ -255,7 +347,7 @@ export const AdminDashboard: React.FC = () => {
       itemTotal: number;
     }> = [];
 
-    orders.forEach(order => {
+    orders.filter(o => o.status !== 'cancelled').forEach(order => {
       order.items.forEach(item => {
         const itemProdId = item.productId || (item as any).product?.id;
         if (itemProdId === productId || item.name.toLowerCase() === selectedProductBuyers?.name.toLowerCase()) {
@@ -289,6 +381,13 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={logout}
+              className="px-4 py-2 bg-white text-red-600 border border-red-200 hover:border-red-600 text-xs uppercase tracking-widest font-bold rounded-sm flex items-center gap-2 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out
+            </button>
+            <button
               onClick={loadAdminData}
               className="px-4 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] hover:border-[#C5A059] text-xs uppercase tracking-widest font-bold rounded-sm flex items-center gap-2 transition-colors"
             >
@@ -296,7 +395,7 @@ export const AdminDashboard: React.FC = () => {
               Refresh Data
             </button>
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => { setNewName(''); setNewPrice(4500); setNewOrigPrice(5200); setNewStock(12); setNewCategory('Habesha Kemis'); setNewRegion('Amhara'); setNewMaterial('100% Handwoven Organic Ethiopian Cotton Shemma'); setNewDesc(''); setNewImage('https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80'); setNewGender('WOMEN'); setIsAddModalOpen(true); }}
               className="px-5 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-widest font-bold rounded-sm transition-colors flex items-center gap-2 shadow-sm"
             >
               <Plus className="w-4 h-4" />
@@ -553,7 +652,14 @@ export const AdminDashboard: React.FC = () => {
                       const buyersCount = getBuyersForProduct(p.id).length;
                       return (
                         <tr key={p.id} className="hover:bg-[#FCFBFA]/50 transition-colors">
-                          <td className="py-3 px-4 font-bold text-[#1A1A1A]">{p.name}</td>
+                          <td className="py-3 px-4 flex items-center gap-3">
+                            <img
+                              src={p.images[0]}
+                              alt={p.name}
+                              className="w-8 h-10 object-cover rounded-sm border border-[#E5E1DA]"
+                            />
+                            <span className="font-bold text-[#1A1A1A]">{p.name}</span>
+                          </td>
                           <td className="py-3 px-4 text-gray-600">{p.category}</td>
                           <td className="py-3 px-4 font-serif font-bold text-[#1A1A1A]">{formatPrice(p.price)}</td>
                           <td className="py-3 px-4">
@@ -750,14 +856,24 @@ export const AdminDashboard: React.FC = () => {
 
                         {/* Delete Action */}
                         <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleEditProductClick(prod)}
+                            className="px-3 py-1 bg-white hover:bg-gray-100 border border-[#E5E1DA] hover:border-black rounded-sm text-[10px] uppercase tracking-wider font-bold transition-all flex items-center gap-1 text-[#1A1A1A]"
+                            title="Edit this product"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
                           <button
                             onClick={() => handleDeleteProduct(prod.id, prod.name)}
-                            className="px-3 py-1 bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border border-red-200 rounded-sm text-[10px] uppercase tracking-wider font-bold transition-all flex items-center gap-1 ml-auto"
+                            className="px-3 py-1 bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border border-red-200 rounded-sm text-[10px] uppercase tracking-wider font-bold transition-all flex items-center gap-1"
                             title="Delete this heritage product entirely"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             Delete
                           </button>
+                        </div>
                         </td>
                       </tr>
                     );
@@ -1185,11 +1301,9 @@ export const AdminDashboard: React.FC = () => {
                       onChange={e => setNewCategory(e.target.value as CategoryName)}
                       className="w-full px-3 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                     >
-                      <option value="Habesha Kemis">Habesha Kemis</option>
-                      <option value="Men's Traditional Wear">Men&apos;s Traditional Wear</option>
-                      <option value="Wedding Collection">Wedding Collection</option>
-                      <option value="Jewelry">Jewelry</option>
-                      <option value="Scarves">Scarves &amp; Netela</option>
+                      {['Habesha Kemis', "Men's Traditional Wear", "Children's Wear", 'Wedding Collection', 'Jewelry', 'Scarves', 'Shoes', 'Bags', 'T-Shirts', 'Sweaters'].map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -1202,12 +1316,9 @@ export const AdminDashboard: React.FC = () => {
                       onChange={e => setNewRegion(e.target.value as RegionName)}
                       className="w-full px-3 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
                     >
-                      <option value="Amhara">Amhara Heritage</option>
-                      <option value="Tigray">Tigray Heritage</option>
-                      <option value="Oromo">Oromo Heritage</option>
-                      <option value="Gurage">Gurage Heritage</option>
-                      <option value="Harari">Harari Heritage</option>
-                      <option value="National Heritage">National Heritage</option>
+                      {['Amhara', 'Tigray', 'Oromo', 'Gurage', 'Harari', 'Sidama', 'Wolayta', 'Afar', 'National Heritage'].map(reg => (
+                        <option key={reg} value={reg}>{reg === 'National Heritage' ? reg : `${reg} Heritage`}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -1268,15 +1379,103 @@ export const AdminDashboard: React.FC = () => {
 
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
-                    Image URL
+                    Sizes (Comma Separated)
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     required
-                    value={newImage}
-                    onChange={e => setNewImage(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
+                    value={newSizes}
+                    onChange={e => setNewSizes(e.target.value)}
+                    placeholder="e.g., S, M, L, XL"
+                    className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                    Product Image
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    {newImage && (
+                      <div className="relative w-32 h-32 border border-[#E5E1DA] rounded-sm overflow-hidden mb-2">
+                        <img src={newImage} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          // Instant Local Base64 Upload WITH Compression
+                          setIsUploadingImage(true);
+                          
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const img = new Image();
+                            img.onload = () => {
+                              const canvas = document.createElement('canvas');
+                              const MAX_WIDTH = 1024;
+                              const MAX_HEIGHT = 1024;
+                              let width = img.width;
+                              let height = img.height;
+
+                              if (width > height) {
+                                if (width > MAX_WIDTH) {
+                                  height *= MAX_WIDTH / width;
+                                  width = MAX_WIDTH;
+                                }
+                              } else {
+                                if (height > MAX_HEIGHT) {
+                                  width *= MAX_HEIGHT / height;
+                                  height = MAX_HEIGHT;
+                                }
+                              }
+
+                              canvas.width = width;
+                              canvas.height = height;
+                              const ctx = canvas.getContext('2d');
+                              if (ctx) {
+                                ctx.drawImage(img, 0, 0, width, height);
+                                // Compress as JPEG with 80% quality
+                                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                                setNewImage(dataUrl);
+                              } else {
+                                setNewImage(event.target?.result as string);
+                              }
+                              setIsUploadingImage(false);
+                            };
+                            img.onerror = () => {
+                              console.error('Failed to load image for compression');
+                              setNewImage(event.target?.result as string);
+                              setIsUploadingImage(false);
+                            };
+                            img.src = event.target?.result as string;
+                          };
+                          
+                          reader.onerror = () => {
+                            console.error('Failed to read file locally');
+                            setIsUploadingImage(false);
+                          };
+                          
+                          reader.readAsDataURL(file);
+                        }}
+                        className="text-xs file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-widest file:bg-[#1A1A1A] file:text-white hover:file:bg-[#C5A059] file:transition-colors file:cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-400">OR</span>
+                      <input
+                        type="url"
+                        placeholder="Paste Image URL"
+                        value={newImage}
+                        onChange={e => setNewImage(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -1302,9 +1501,250 @@ export const AdminDashboard: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white font-bold rounded-sm uppercase tracking-widest transition-colors"
+                    disabled={isUploadingImage}
+                    className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white font-bold rounded-sm uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Publish to Store
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* -------------------------------------------------------------
+            MODAL 4: EDIT PRODUCT MODAL
+           ------------------------------------------------------------- */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-white w-full max-w-2xl rounded-sm p-6 md:p-8 border border-[#E5E1DA] shadow-2xl relative max-h-[90vh] overflow-y-auto">
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-black"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <span className="text-xs uppercase tracking-[0.2em] text-[#C5A059] font-bold">
+                Catalog Management
+              </span>
+              <h2 className="text-2xl font-serif text-[#1A1A1A] mt-1 mb-6">
+                Edit Garment
+              </h2>
+
+              <form onSubmit={handleUpdateProduct} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                    Garment Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={newCategory}
+                      onChange={e => setNewCategory(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
+                    >
+                      {['Habesha Kemis', "Men's Traditional Wear", "Children's Wear", 'Wedding Collection', 'Jewelry', 'Scarves', 'Shoes', 'Bags', 'T-Shirts', 'Sweaters'].map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      Region
+                    </label>
+                    <select
+                      value={newRegion}
+                      onChange={e => setNewRegion(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
+                    >
+                      {['Amhara', 'Tigray', 'Oromo', 'Gurage', 'Harari', 'Sidama', 'Wolayta', 'Afar', 'National Heritage'].map(reg => (
+                        <option key={reg} value={reg}>{reg === 'National Heritage' ? reg : `${reg} Heritage`}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      Price (ETB / Birr)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={newPrice}
+                      onChange={e => setNewPrice(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      Original Price
+                    </label>
+                    <input
+                      type="number"
+                      value={newOrigPrice || ''}
+                      onChange={e => setNewOrigPrice(e.target.value ? Number(e.target.value) : undefined)}
+                      className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                      Stock Level
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={newStock}
+                      onChange={e => setNewStock(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                    Sizes (Comma Separated)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newSizes}
+                    onChange={e => setNewSizes(e.target.value)}
+                    placeholder="e.g., S, M, L, XL"
+                    className="w-full px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                    Product Image
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    {newImage && (
+                      <div className="relative w-32 h-32 border border-[#E5E1DA] rounded-sm overflow-hidden mb-2">
+                        <img src={newImage} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          // Instant Local Base64 Upload WITH Compression
+                          setIsUploadingImage(true);
+                          
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const img = new Image();
+                            img.onload = () => {
+                              const canvas = document.createElement('canvas');
+                              const MAX_WIDTH = 1024;
+                              const MAX_HEIGHT = 1024;
+                              let width = img.width;
+                              let height = img.height;
+
+                              if (width > height) {
+                                if (width > MAX_WIDTH) {
+                                  height *= MAX_WIDTH / width;
+                                  width = MAX_WIDTH;
+                                }
+                              } else {
+                                if (height > MAX_HEIGHT) {
+                                  width *= MAX_HEIGHT / height;
+                                  height = MAX_HEIGHT;
+                                }
+                              }
+
+                              canvas.width = width;
+                              canvas.height = height;
+                              const ctx = canvas.getContext('2d');
+                              if (ctx) {
+                                ctx.drawImage(img, 0, 0, width, height);
+                                // Compress as JPEG with 80% quality
+                                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                                setNewImage(dataUrl);
+                              } else {
+                                setNewImage(event.target?.result as string);
+                              }
+                              setIsUploadingImage(false);
+                            };
+                            img.onerror = () => {
+                              console.error('Failed to load image for compression');
+                              setNewImage(event.target?.result as string);
+                              setIsUploadingImage(false);
+                            };
+                            img.src = event.target?.result as string;
+                          };
+                          
+                          reader.onerror = () => {
+                            console.error('Failed to read file locally');
+                            setIsUploadingImage(false);
+                          };
+                          
+                          reader.readAsDataURL(file);
+                        }}
+                        className="text-xs file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-widest file:bg-[#1A1A1A] file:text-white hover:file:bg-[#C5A059] file:transition-colors file:cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-400">OR</span>
+                      <input
+                        type="url"
+                        placeholder="Paste Image URL"
+                        value={newImage}
+                        onChange={e => setNewImage(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A] mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newDesc}
+                    onChange={e => setNewDesc(e.target.value)}
+                    className="w-full p-3 bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm"
+                  ></textarea>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-[#E5E1DA]">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-5 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUploadingImage}
+                    className="px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white font-bold rounded-sm uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save Changes
                   </button>
                 </div>
               </form>

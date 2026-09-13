@@ -11,7 +11,7 @@ import { SEO } from '../components/SEO.js';
 
 export const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { addToCart, toggleWishlist, isWishlisted, formatPrice, user, showToast, requireAuth } = useApp();
+  const { addToCart, toggleWishlist, isWishlisted, formatPrice, user, showToast, requireAuth, t } = useApp();
   const navigate = useNavigate();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -422,7 +422,7 @@ export const ProductDetails: React.FC = () => {
                   : 'border-transparent text-gray-500 hover:text-black'
               }`}
             >
-              Customer Reviews ({product.reviews.length})
+              {t.customerReviewsTab} ({product.reviews.length})
             </button>
           </div>
 
@@ -468,16 +468,16 @@ export const ProductDetails: React.FC = () => {
                 </h3>
                 <ul className="list-disc pl-5 space-y-2">
                   <li>
-                    <strong>Hand Washing Recommended:</strong> Wash gently in cold water using a mild pH-neutral liquid soap. Avoid harsh detergents or bleach that can fade Tilet embroidery.
+                    <strong>{t.handWashing}</strong> Wash gently in cold water using a mild pH-neutral liquid soap. Avoid harsh detergents or bleach that can fade Tilet embroidery.
                   </li>
                   <li>
-                    <strong>Dry Cleaning:</strong> For garments with heavy metallic 24K gold thread Tilet or velvet accents, professional dry cleaning is strongly advised.
+                    <strong>{t.dryCleaning}</strong> For garments with heavy metallic 24K gold thread Tilet or velvet accents, professional dry cleaning is strongly advised.
                   </li>
                   <li>
-                    <strong>Ironing:</strong> Press on a low-to-medium heat setting while the garment is slightly damp, or use a cloth barrier over the Tilet border.
+                    <strong>{t.ironing}</strong> Press on a low-to-medium heat setting while the garment is slightly damp, or use a cloth barrier over the Tilet border.
                   </li>
                   <li>
-                    <strong>Storage:</strong> Store folded in a breathable cotton garment bag away from direct sunlight.
+                    <strong>{t.storage}</strong> Store folded in a breathable cotton garment bag away from direct sunlight.
                   </li>
                 </ul>
               </div>

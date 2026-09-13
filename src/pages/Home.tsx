@@ -31,30 +31,30 @@ export const Home: React.FC = () => {
 
   const heritageRegions = [
     {
-      name: 'Amhara Heritage',
-      origin: 'Gondar & Lalibela',
-      desc: 'Known for pristine white handwoven cotton Shemma with rich Tilet embroidery featuring golden crosses and royal geometric bands.',
+      name: t.amharaHeritage,
+      origin: t.gondarLalibela,
+      desc: t.amharaDesc,
       image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80',
       link: '/shop?region=Amhara'
     },
     {
-      name: 'Tigray Heritage',
-      origin: 'Axum & Raya',
-      desc: 'Celebrated for vibrant Raya braiding, intricate Axumite Zuria patterns, and exquisite silver and gold filigree adornments.',
+      name: t.tigrayHeritage,
+      origin: t.axumRaya,
+      desc: t.tigrayDesc,
       image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&q=80',
       link: '/shop?region=Tigray'
     },
     {
-      name: 'Oromo Heritage',
-      origin: 'Woyya & Abba Gadaa',
-      desc: 'Distinctive handwoven Woyya robes with bold red, black, and white Tilet motifs representing unity and traditional leadership.',
+      name: t.oromoHeritage,
+      origin: t.woyyaAbbaGadaa,
+      desc: t.oromoDesc,
       image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80',
       link: '/shop?region=Oromo'
     },
     {
-      name: 'Harari & Gurage',
-      origin: 'Ge-Gara & Enset Weaves',
-      desc: 'Richly dyed silk and cotton weaves with intricate floral and geometric embroidery worn during celebrations and wedding ceremonies.',
+      name: t.harariGurage,
+      origin: t.geGaraEnset,
+      desc: t.harariDesc,
       image: 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?auto=format&fit=crop&w=800&q=80',
       link: '/shop?region=Harari'
     }
@@ -64,8 +64,8 @@ export const Home: React.FC = () => {
     <div className="flex flex-col bg-[#FCFBFA] text-[#1A1A1A]">
       <SEO 
         title="Home"
-        description="Wanofi Design — Premium Ethiopian Traditional Clothing & Custom Couture. Explore our handcrafted Habesha Kemis, Wedding Collections, and authentic cultural heritage garments."
-        keywords="Wanofi Design, Ethiopian Traditional Clothing, Habesha Kemis, Custom Couture, Ethiopian Wedding, Tilet, Handwoven Fashion"
+        description="Wanofi Design — Premium Ethiopian Traditional Clothing & Custom Couture. Explore our handcrafted {t.catHabeshaKemis}, {t.catWedding}s, and authentic cultural heritage garments."
+        keywords="Wanofi Design, Ethiopian Traditional Clothing, {t.catHabeshaKemis}, Custom Couture, Ethiopian Wedding, Tilet, Handwoven Fashion"
       />
       {/* Clean Minimalism Hero Section matching approved HTML */}
       <section className="flex flex-col justify-center items-center text-center px-6 md:px-12 py-20 md:py-28 bg-[#FCFBFA] border-b border-[#E5E1DA] relative overflow-hidden">
@@ -146,7 +146,7 @@ export const Home: React.FC = () => {
               to="/categories"
               className="text-xs uppercase tracking-widest font-bold text-[#1A1A1A] hover:text-[#C5A059] flex items-center gap-1.5 mt-4 md:mt-0 transition-colors"
             >
-              View All 8 Categories <ArrowRight className="w-3.5 h-3.5" />
+              {t.viewAllCategories} <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -157,84 +157,83 @@ export const Home: React.FC = () => {
             >
               <img
                 src="https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80"
-                alt="Habesha Kemis"
+                alt={t.catHabeshaKemis}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
               <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                 <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
-                  Women's Heritage
+                  {t.catHabeshaKemis}
                 </span>
-                <h3 className="text-xl font-serif font-light mt-1">Habesha Kemis</h3>
+                <h3 className="text-xl font-serif font-light mt-1">{t.catHabeshaKemis}</h3>
                 <p className="text-xs text-white/70 font-light mt-1">
-                  Handwoven Zuria dresses with royal Tilet embroidery.
+                  {t.catHabeshaKemisDesc}
                 </p>
               </div>
             </Link>
 
             <Link
-              to="/shop?category=Men%27s+Traditional+Wear"
+              to="/shop?category=T-Shirts"
               className="group relative aspect-[3/4] rounded-sm overflow-hidden border border-[#E5E1DA]/50 block shadow-sm hover:shadow-md transition-shadow"
             >
               <img
-                src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80"
-                alt="Men's Traditional Wear"
+                src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=800&q=80"
+                alt={t.catTShirts}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
               <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                 <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
-                  Men's Royal
+                  {t.catTShirts}
                 </span>
-                <h3 className="text-xl font-serif font-light mt-1">Traditional Suits</h3>
+                <h3 className="text-xl font-serif font-light mt-1">{t.catTShirts}</h3>
                 <p className="text-xs text-white/70 font-light mt-1">
-                  Embroidered cotton suits, tunics &amp; Koba capes.
+                  {t.catTShirtsDesc}
                 </p>
               </div>
             </Link>
 
             <Link
-              to="/shop?category=Wedding+Collection"
+              to="/shop?category=Bags"
               className="group relative aspect-[3/4] rounded-sm overflow-hidden border border-[#E5E1DA]/50 block shadow-sm hover:shadow-md transition-shadow"
             >
               <img
-                src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=800&q=80"
-                alt="Wedding Collection"
+                src="https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=800&q=80"
+                alt={t.catBags}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
               <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                 <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
-                  Bridal &amp; Mels
+                  {t.catBags}
                 </span>
-                <h3 className="text-xl font-serif font-light mt-1">Wedding Collection</h3>
+                <h3 className="text-xl font-serif font-light mt-1">{t.catBags}</h3>
                 <p className="text-xs text-white/70 font-light mt-1">
-                  Regal wedding gowns with 24K gold-threaded Tilet.
+                  {t.catBagsDesc}
                 </p>
               </div>
             </Link>
 
             <Link
-              to="/shop?category=Jewelry"
+              to="/shop?category=Sweaters"
               className="group relative aspect-[3/4] rounded-sm overflow-hidden border border-[#E5E1DA]/50 block shadow-sm hover:shadow-md transition-shadow"
             >
               <img
-                src="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80"
-                alt="Axumite Jewelry"
+                src="https://images.unsplash.com/photo-1612040905953-3fdfdfbc3d45?auto=format&fit=crop&w=800&q=80"
+                alt={t.catSweaters}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
               <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                 <span className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">
-                  Adornments
+                  {t.catSweaters}
                 </span>
-                <h3 className="text-xl font-serif font-light mt-1">Axumite Jewelry</h3>
+                <h3 className="text-xl font-serif font-light mt-1">{t.catSweaters}</h3>
                 <p className="text-xs text-white/70 font-light mt-1">
-                  Handcrafted filigree crosses &amp; ceremonial headpieces.
+                  {t.catSweatersDesc}
                 </p>
               </div>
-            </Link>
-          </div>
+            </Link>          </div>
         </div>
       </section>
 
@@ -279,13 +278,13 @@ export const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
-              Weaving Across Ethiopia
+              {t.weavingAcrossEthiopia}
             </span>
             <h2 className="text-3xl md:text-5xl font-serif font-light text-[#1A1A1A] mt-2 mb-4">
-              Regional Tilet &amp; Traditions
+              {t.regionalTiletTitle}
             </h2>
             <p className="text-xs md:text-sm text-gray-600 dark:text-gray-300 font-light leading-relaxed">
-              Every region of Ethiopia weaves its story into the fabric of the Shemma. From the historic castles of Gondar to the ancient obelisks of Axum, discover garments that celebrate regional identity.
+              {t.everyRegionWeaves}
             </p>
           </div>
 
@@ -315,7 +314,7 @@ export const Home: React.FC = () => {
                   </p>
                 </div>
                 <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#2D2D2D] flex items-center justify-between text-xs font-bold uppercase tracking-widest text-[#1A1A1A] group-hover:text-[#C5A059] transition-colors">
-                  <span>Explore Region</span>
+                  <span>{t.exploreRegion}</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
@@ -340,7 +339,7 @@ export const Home: React.FC = () => {
               to="/shop?newarrival=true"
               className="text-xs uppercase tracking-widest font-bold text-[#1A1A1A] hover:text-[#C5A059] flex items-center gap-1.5 mt-4 md:mt-0 transition-colors"
             >
-              Shop All New Arrivals <ArrowRight className="w-3.5 h-3.5" />
+              {t.shopAllNew} <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -357,22 +356,20 @@ export const Home: React.FC = () => {
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
             <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
-              The Art of Shemma
+              {t.artOfShemma}
             </span>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-light mt-3 mb-6 leading-tight">
-              From the Artisan's Loom to Your Celebratory Moment
+              {t.fromArtisan}
             </h2>
-            <p className="text-xs sm:text-sm text-white/70 font-light leading-relaxed mb-8">
-              Every Habesha Threads garment begins with pure Ethiopian cotton spun by hand into delicate thread. Master weavers then loom the Shemma on traditional wooden looms, while skilled embroiderers stitch the Tilet pattern—a labor of love taking up to 4 weeks per dress.
-            </p>
+            <p className="text-xs sm:text-sm text-white/70 font-light leading-relaxed mb-8">{t.everyGarment}</p>
             <div className="grid grid-cols-2 gap-6 pt-6 border-t border-white/10">
               <div>
-                <p className="text-2xl font-serif font-bold text-[#C5A059]">4+ Weeks</p>
-                <p className="text-xs text-white/60 mt-1 font-light">Handweaving &amp; Embroidery Time</p>
+                <p className="text-2xl font-serif font-bold text-[#C5A059]">{t.handweavingTime}</p>
+                <p className="text-xs text-white/60 mt-1 font-light">{t.handweavingDesc}</p>
               </div>
               <div>
-                <p className="text-2xl font-serif font-bold text-[#C5A059]">100% Organic</p>
-                <p className="text-xs text-white/60 mt-1 font-light">Ethiopian High-Grade Cotton</p>
+                <p className="text-2xl font-serif font-bold text-[#C5A059]">{t.organicCotton}</p>
+                <p className="text-xs text-white/60 mt-1 font-light">{t.organicCottonDesc}</p>
               </div>
             </div>
           </div>
@@ -386,7 +383,7 @@ export const Home: React.FC = () => {
               />
             </div>
             <div className="absolute -bottom-6 -left-6 bg-white text-[#1A1A1A] p-6 rounded-sm shadow-xl border border-[#E5E1DA] hidden sm:block max-w-xs">
-              <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">Cultural Guarantee</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#C5A059] font-bold">{t.culturalGuarantee}</p>
               <p className="text-xs font-serif font-semibold mt-1">
                 &ldquo;Wearing our heritage with pride across the globe.&rdquo;
               </p>
@@ -400,10 +397,10 @@ export const Home: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <span className="text-xs uppercase tracking-[0.25em] text-[#C5A059] font-bold">
-              Voices of our Heritage Circle
+              {t.voicesTitle}
             </span>
             <h2 className="text-3xl md:text-4xl font-serif font-light text-[#1A1A1A] mt-2">
-              Loved by Habeshas Worldwide
+              {t.lovedBy}
             </h2>
           </div>
 
@@ -414,12 +411,12 @@ export const Home: React.FC = () => {
                   {'★'.repeat(5)}
                 </div>
                 <p className="text-xs font-light text-gray-700 dark:text-gray-300 leading-relaxed italic">
-                  &ldquo;I ordered the Sheba Royal Gold Habesha Kemis for my wedding Mels ceremony in Washington DC. The tailoring was flawless and the Tilet gold threads glimmered in every photo!&rdquo;
+                  &ldquo;{t.test1Desc}&rdquo;
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#2D2D2D]">
-                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">Helen Mekonnen</p>
-                <p className="text-[10px] uppercase tracking-widest text-gray-400">Washington, DC</p>
+                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">{t.test1Name}</p>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400">{t.test1Loc}</p>
               </div>
             </div>
 
@@ -429,12 +426,12 @@ export const Home: React.FC = () => {
                   {'★'.repeat(5)}
                 </div>
                 <p className="text-xs font-light text-gray-700 dark:text-gray-300 leading-relaxed italic">
-                  &ldquo;The Lalibela Embroidered Traditional Suit for my husband fit like bespoke Savile Row tailoring. High-grade cotton and the embroidery is authentic. We will be ordering again.&rdquo;
+                  &ldquo;{t.test2Desc}&rdquo;
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#2D2D2D]">
-                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">Bethelhem &amp; Dawit</p>
-                <p className="text-[10px] uppercase tracking-widest text-gray-400">Addis Ababa, Ethiopia</p>
+                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">{t.test2Name}</p>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400">{t.test2Loc}</p>
               </div>
             </div>
 
@@ -448,8 +445,8 @@ export const Home: React.FC = () => {
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-gray-100 dark:border-[#2D2D2D]">
-                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">Yared Kassahun</p>
-                <p className="text-[10px] uppercase tracking-widest text-gray-400">London, UK</p>
+                <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">{t.test3Name}</p>
+                <p className="text-[10px] uppercase tracking-widest text-gray-400">{t.test3Loc}</p>
               </div>
             </div>
           </div>

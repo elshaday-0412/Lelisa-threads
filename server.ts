@@ -2,10 +2,12 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import axios from 'axios';
-import { SAMPLE_PRODUCTS, Product } from './src/data/sampleProducts.js';
+import { SAMPLE_PRODUCTS } from './src/data/sampleProducts.js';
+import { Product } from './src/types/index.js';
 
 // In-Memory Database for Live Preview & Production Demo
 let products: Product[] = [...SAMPLE_PRODUCTS];
+let localOverrides: Record<string, any> = {};
 
 // Central ERP Server Integration State
 let erpConfig = {
@@ -39,7 +41,12 @@ function convertErpItemToProduct(item: any): Product {
     ? Number(item.availableQuantity) 
     : (item.stock !== undefined ? Number(item.stock) : (item.inStock ? 10 : 0));
 
-  const size = item.size ? [String(item.size)] : ['S', 'M', 'L', 'XL'];
+  let sizes = ['S', 'M', 'L', 'XL'];
+  if (Array.isArray(item.sizes)) sizes = item.sizes;
+  else if (typeof item.sizes === 'string') sizes = item.sizes.split(',').map((s: string) => s.trim());
+  else if (Array.isArray(item.size)) sizes = item.size;
+  else if (typeof item.size === 'string') sizes = [item.size];
+
   const color = item.color ? [String(item.color)] : ['White & Gold'];
 
   return {
@@ -48,14 +55,15 @@ function convertErpItemToProduct(item: any): Product {
     slug: `variant-${variantId}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     price,
     stock,
-    sizes: size,
+    sizes,
+
     colors: color,
     description: item.description || (item.sku ? `SKU: ${item.sku}. High-grade handwoven Ethiopian garment.` : 'Authentic handwoven Ethiopian garment.'),
     category: item.category || 'Habesha Kemis',
-    region: item.region || 'National Heritage',
+    region: item.region || item.locationName || 'National Heritage',
     material: item.material || '100% Pure Handwoven Cotton',
     gender: item.gender || 'WOMEN',
-    images: Array.isArray(item.images) && item.images.length > 0 ? item.images : (item.image ? [item.image] : ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80']),
+    images: Array.isArray(item.images) && item.images.length > 0 ? item.images : (item.image ? [item.image] : (item.images ? [item.images] : ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=800&q=80'])),
     rating: 4.9,
     reviewCount: 10,
     reviews: []
@@ -80,10 +88,12 @@ async function sendOrderToErp(order: Order) {
 
     console.log(`[ERP SERVER-TO-SERVER] Sending order ${order.orderNumber} to ${erpConfig.url}/api/public/orders`);
     const headers = {
-      'Content-Type': 'application/json',
-      'x-api-key': erpConfig.apiKey,
-      'X-Inventory-Api-Key': erpConfig.apiKey
-    };
+          'Content-Type': 'application/json',
+          'x-api-key': erpConfig.apiKey,
+          'X-Inventory-Api-Key': erpConfig.apiKey,
+          'Authorization': `Bearer ${erpConfig.apiKey}`,
+          'api-key': erpConfig.apiKey
+        };
 
     let erpRes;
     try {
@@ -294,8 +304,8 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // Helper to format phone number to Chapa required 10-digit format (09xxxxxxxx or 07xxxxxxxx)
   function cleanPhoneForChapa(phone?: string): string {
@@ -370,11 +380,13 @@ async function startServer() {
     }
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'x-api-key': erpConfig.apiKey,
-        'X-Inventory-Api-Key': erpConfig.apiKey
-      };
+      const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': erpConfig.apiKey,
+          'X-Inventory-Api-Key': erpConfig.apiKey,
+          'Authorization': `Bearer ${erpConfig.apiKey}`,
+          'api-key': erpConfig.apiKey
+        };
 
       let targetUrl = `${erpConfig.url}/api/public/catalog`;
       console.log(`[ERP SERVER-TO-SERVER] Requesting catalog from: ${targetUrl}`);
@@ -396,7 +408,23 @@ async function startServer() {
       const rawList = Array.isArray(data) ? data : (data.products || data.items || []);
 
       if (rawList && rawList.length > 0) {
-        const converted = rawList.map((item: any) => convertErpItemToProduct(item));
+        let converted = rawList.map((item: any) => convertErpItemToProduct(item));
+        
+        // Apply local overrides
+        converted = converted.map((item: any) => {
+          if (localOverrides[item.id]) {
+            return { ...item, ...localOverrides[item.id] };
+          }
+          return item;
+        });
+
+        // Add locally created items that might not be in ERP
+        Object.keys(localOverrides).forEach(id => {
+           if (!converted.find((p:any) => p.id === id)) {
+               const localProd = products.find(p => p.id === id);
+               if (localProd) converted.unshift(localProd);
+           }
+        });
         return res.json({
           source: 'EXTERNAL_CENTRAL_INVENTORY',
           connected: true,
@@ -509,11 +537,46 @@ async function startServer() {
   });
 
   // GET /api/products/:idOrSlug
-  app.get('/api/products/:idOrSlug', (req, res) => {
+  app.get('/api/products/:idOrSlug', async (req, res) => {
     const { idOrSlug } = req.params;
-    const product = products.find(p => p.id === idOrSlug || p.slug === idOrSlug);
+    let product = products.find(p => p.id === idOrSlug || p.slug === idOrSlug);
+
+    if (!product && erpConfig.url) {
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': erpConfig.apiKey,
+          'X-Inventory-Api-Key': erpConfig.apiKey,
+          'Authorization': `Bearer ${erpConfig.apiKey}`,
+          'api-key': erpConfig.apiKey
+        };
+        let targetUrl = `${erpConfig.url}/api/public/catalog`;
+        let erpRes;
+        try {
+          erpRes = await axios.get(targetUrl, { headers, timeout: 5000 });
+        } catch (err: any) {
+          if (err.response?.status === 404) {
+             erpRes = await axios.get(`${erpConfig.url}/products`, { headers, timeout: 5000 });
+          } else throw err;
+        }
+        
+        const data = erpRes.data;
+        const rawList = Array.isArray(data) ? data : (data.products || data.items || []);
+        const item = rawList.find((i: any) => String(i.id) === idOrSlug || String(i.variantId) === idOrSlug || String(i.sku) === idOrSlug);
+        
+        if (item) {
+           product = convertErpItemToProduct(item);
+           if (localOverrides[product.id]) {
+             product = { ...product, ...localOverrides[product.id] };
+           }
+        }
+      } catch (err) {
+        console.warn('Could not fetch product from ERP for details view:', err);
+      }
+    }
+
     if (!product) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ error: 'Product not found {DEBUG}' });
     }
     res.json(product);
   });
@@ -913,6 +976,7 @@ async function startServer() {
   // GET /api/orders/:id
   app.get('/api/orders/:id', (req, res) => {
     const { id } = req.params;
+    console.log('HIT PUT', id, req.method);
     const order = orders.find(o => o.id === id || o.orderNumber === id);
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
@@ -939,10 +1003,12 @@ async function startServer() {
       if (erpConfig.url && erpConfig.apiKey) {
         try {
           const headers = {
-            'Content-Type': 'application/json',
-            'x-api-key': erpConfig.apiKey,
-            'X-Inventory-Api-Key': erpConfig.apiKey
-          };
+          'Content-Type': 'application/json',
+          'x-api-key': erpConfig.apiKey,
+          'X-Inventory-Api-Key': erpConfig.apiKey,
+          'Authorization': `Bearer ${erpConfig.apiKey}`,
+          'api-key': erpConfig.apiKey
+        };
           await axios.post(`${erpConfig.url}/api/public/orders/cancel`, { externalOrderId }, { headers, timeout: 5000 });
           console.log(`[ERP CANCEL SYNC] Sent cancel for ${externalOrderId}`);
         } catch (erpErr: any) {
@@ -966,26 +1032,18 @@ async function startServer() {
       shippingAddress,
       city,
       region,
-      paymentMethod,
       items,
       subtotal,
       shippingCost,
       totalAmount,
-      transactionRef,
-      paymentTimestamp,
-      paymentGatewayResponse,
-      cardLastFour,
-      mobileWalletPhone,
-      isPaid
+      paymentMethod,
+      isPaid,
+      txRef
     } = req.body;
 
-    if (!items || items.length === 0) {
-      return res.status(400).json({ error: 'Order items cannot be empty' });
-    }
-
-    const newOrder: Order = {
-      id: `ord-${Math.floor(1000 + Math.random() * 9000)}`,
-      orderNumber: `HT-${Math.floor(10000 + Math.random() * 90000)}`,
+    const newOrder: any = {
+      id: `ord-${Date.now()}`,
+      orderNumber: `HT-${Math.floor(100000 + Math.random() * 900000)}`,
       userId: userId || 'guest',
       customerName,
       customerEmail,
@@ -993,21 +1051,15 @@ async function startServer() {
       shippingAddress,
       city,
       region,
-      status: paymentMethod === 'CASH_ON_DELIVERY' ? 'PROCESSING' : 'PENDING',
-      paymentMethod: paymentMethod || 'CHAPA',
-      paymentGateway: paymentMethod === 'CASH_ON_DELIVERY' ? 'cash_on_delivery' : 'chapa',
-      paymentStatus: paymentMethod === 'CASH_ON_DELIVERY' ? 'pending' : (isPaid ? 'paid' : 'pending'),
-      isPaid: paymentMethod === 'CASH_ON_DELIVERY' ? false : (isPaid !== undefined ? isPaid : false),
-      transactionRef,
-      paymentTimestamp,
-      paymentGatewayResponse,
-      cardLastFour,
-      mobileWalletPhone,
+      status: 'received',
+      paymentMethod,
+      isPaid: Boolean(isPaid),
+      txRef,
       subtotal,
-      shippingCost: shippingCost || 0,
+      shippingCost,
       totalAmount,
       createdAt: new Date().toISOString(),
-      items
+      items: items || []
     };
 
     orders.unshift(newOrder);
@@ -1019,109 +1071,206 @@ async function startServer() {
       });
     }
 
-    // Save address to user if logged in
-    if (userId && userId !== 'guest') {
-      const user = users.find(u => u.id === userId);
-      if (user && !user.addresses.some(a => a.street === shippingAddress)) {
-        user.addresses.push({
-          id: `addr-${Date.now()}`,
-          street: shippingAddress,
-          city,
-          region,
-          isDefault: user.addresses.length === 0
-        });
-      }
-    }
-
     res.status(201).json(newOrder);
   });
 
-  // PATCH /api/orders/:id/status - Admin update order status
-  app.patch('/api/orders/:id/status', (req, res) => {
+  // GET /api/orders/:id
+  app.get('/api/orders/:id', (req, res) => {
+    const order = orders.find(o => o.id === req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json(order);
+  });
+
+  // PUT /api/orders/:id/status
+  app.put('/api/orders/:id/status', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-    const order = orders.find(o => o.id === id || o.orderNumber === id);
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
+    const order = orders.find(o => o.id === id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
     order.status = status;
     res.json(order);
   });
 
-  // GET /api/admin/stats - Admin Dashboard analytics
+  // PATCH /api/orders/:id/status
+  app.patch('/api/orders/:id/status', async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const order = orders.find(o => o.id === id);
+    if (order) order.status = status;
+
+    if (erpConfig.url && erpConfig.apiKey) {
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': erpConfig.apiKey,
+          'X-Inventory-Api-Key': erpConfig.apiKey,
+          'Authorization': `Bearer ${erpConfig.apiKey}`,
+          'api-key': erpConfig.apiKey
+        };
+        const payload = { externalOrderId: id, status };
+        let success = false;
+        const endpoints = ['/api/public/orders/status', `/api/public/orders/${id}/status`, `/api/orders/${id}/status`];
+        for (const ep of endpoints) {
+           try {
+             const erpRes = await axios.patch(`${erpConfig.url}${ep}`, payload, { headers, timeout: 5000 });
+             success = true;
+             console.log(`[ERP SYNC] Successfully updated order status via PATCH ${ep}`);
+             break;
+           } catch(e) {}
+        }
+        if (!success) {
+           for (const ep of endpoints) {
+             try {
+               await axios.put(`${erpConfig.url}${ep}`, payload, { headers, timeout: 5000 });
+               success = true;
+               console.log(`[ERP SYNC] Successfully updated order status via PUT ${ep}`);
+               break;
+             } catch(e) {}
+           }
+        }
+      } catch (err) {}
+    }
+    res.json(order || { id, status });
+  });
+
+  // DELETE /api/orders/:id
+  app.delete('/api/orders/:id', (req, res) => {
+    const index = orders.findIndex(o => o.id === req.params.id);
+    if (index === -1) return res.status(404).json({ error: 'Order not found' });
+    const deleted = orders.splice(index, 1)[0];
+    res.json({ success: true, deleted });
+  });
+
+  // GET /api/admin/stats
   app.get('/api/admin/stats', (req, res) => {
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.isPaid ? o.totalAmount : 0), 0);
-    const totalOrders = orders.length;
-    const totalProductsCount = products.length;
-    const totalCustomersCount = users.length;
-
-    // Sales by Category
-    const salesByCategory: { [key: string]: number } = {};
-    orders.forEach(o => {
-      o.items.forEach(item => {
-        const prod = products.find(p => p.id === item.productId);
-        const cat = prod ? prod.category : 'Habesha Kemis';
-        salesByCategory[cat] = (salesByCategory[cat] || 0) + item.price * item.quantity;
-      });
-    });
-
-    const categoryChartData = Object.entries(salesByCategory).map(([name, value]) => ({
-      name,
-      value
-    }));
-
-    // Revenue chart data (6 months)
-    const revenueChartData = [
-      { month: 'Mar', revenue: 145000, orders: 12 },
-      { month: 'Apr', revenue: 210000, orders: 18 },
-      { month: 'May', revenue: 315000, orders: 25 },
-      { month: 'Jun', revenue: 420000, orders: 31 },
-      { month: 'Jul', revenue: 530000, orders: 42 },
-      { month: 'Aug', revenue: 645000, orders: 48 }
-    ];
-
-    // Low stock items
-    const lowStockProducts = products.filter(p => p.stock <= 5);
-
-    // Best sellers
-    const popularProducts = products.filter(p => p.isBestSeller).slice(0, 6);
-
     res.json({
-      summary: {
-        totalRevenue,
-        totalOrders,
-        totalProducts: totalProductsCount,
-        totalCustomers: totalCustomersCount
-      },
-      revenueChartData,
-      categoryChartData,
-      lowStockProducts,
-      popularProducts,
+      totalRevenue: orders.filter(o => o.status !== 'CANCELLED').reduce((acc, curr) => acc + curr.totalAmount, 0),
+      totalOrders: orders.filter(o => o.status !== 'CANCELLED').length,
       recentOrders: orders.slice(0, 8)
     });
   });
 
-  // POST /api/products - Admin create product
-  app.post('/api/products', (req, res) => {
+  // POST /api/products
+  app.post('/api/products', async (req, res) => {
     const prodData = req.body;
     const newProd: Product = {
       ...prodData,
       id: `prod-${Date.now()}`,
-      slug: prodData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      slug: (prodData.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       rating: 5.0,
       reviewCount: 0,
       reviews: []
     };
+
+    if (erpConfig.url && erpConfig.apiKey) {
+      try {
+        const payload = {
+          productName: newProd.name,
+          category: newProd.category,
+          region: newProd.region,
+          sizes: newProd.sizes,
+          price: newProd.price,
+          stock: newProd.stock || 10,
+          description: newProd.description,
+          sku: newProd.id,
+          image: newProd.images?.[0] || ''
+        };
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': erpConfig.apiKey,
+          'X-Inventory-Api-Key': erpConfig.apiKey,
+          'Authorization': `Bearer ${erpConfig.apiKey}`,
+          'api-key': erpConfig.apiKey
+        };
+        
+        console.log(`[ERP SYNC] Pushing new product ${newProd.name} to ERP...`);
+        const endpointsToTry = [
+          `/api/products`,
+          `/products`,
+          `/api/public/products`,
+          `/api/public/catalog`,
+          `/api/inventory/products`
+        ];
+        
+        let success = false;
+        for (const ep of endpointsToTry) {
+          if (success) break;
+          console.log(`[ERP SYNC] Trying POST ${ep}...`);
+          try {
+            const erpRes = await axios.post(`${erpConfig.url}${ep}`, payload, { headers, timeout: 5000 });
+            if (erpRes.data && (erpRes.data.id || erpRes.data.success || erpRes.data.product)) {
+              newProd.id = String(erpRes.data.id || (erpRes.data.product && erpRes.data.product.id) || newProd.id);
+              success = true;
+              console.log(`[ERP SYNC] Successfully pushed product to ERP using ${ep}`);
+            } else if (erpRes.status >= 200 && erpRes.status < 300) {
+              success = true;
+              console.log(`[ERP SYNC] Successfully pushed product to ERP using ${ep} (no ID returned)`);
+            }
+          } catch (e: any) {
+             console.warn(`[ERP SYNC] POST ${ep} failed with status ${e.response?.status}`);
+          }
+        }
+        
+        if (!success) {
+           console.warn('[ERP SYNC ERROR] Failed to push new product to ERP on all known endpoints');
+        }
+      } catch (err: any) {
+        console.warn('[ERP SYNC ERROR] Unexpected error pushing to ERP:', err.message);
+      }
+    }
+
     products.unshift(newProd);
+    // Also save it in localOverrides so it's not lost on next fetch
+    localOverrides[newProd.id] = newProd;
+    
     res.status(201).json(newProd);
   });
 
   // PUT /api/products/:id - Admin edit product
-  app.put('/api/products/:id', (req, res) => {
+  console.log('Registered PUT /api/products/:id');
+  app.put('/api/products/:id', async (req, res) => {
     const { id } = req.params;
+    // Save to local overrides so it persists across ERP catalog fetches
+    localOverrides[id] = { ...(localOverrides[id] || {}), ...req.body };
+    
     const index = products.findIndex(p => p.id === id);
+
+    if (erpConfig.url && erpConfig.apiKey) {
+      try {
+        const payload = {
+          productName: req.body.name,
+          category: req.body.category,
+          region: req.body.region,
+          sizes: req.body.sizes,
+          price: req.body.price,
+          stock: req.body.stock,
+          description: req.body.description,
+          sku: req.body.sku || id,
+          image: req.body.images?.[0]
+        };
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': erpConfig.apiKey,
+          'X-Inventory-Api-Key': erpConfig.apiKey,
+          'Authorization': `Bearer ${erpConfig.apiKey}`,
+          'api-key': erpConfig.apiKey
+        };
+        
+        console.log(`[ERP SYNC] Updating product ${id} on ERP...`);
+        try {
+          await axios.patch(`${erpConfig.url}/api/public/products/${id}`, payload, { headers, timeout: 5000 });
+        } catch (e: any) {
+          console.warn(`[ERP SYNC] PATCH /api/public/products/${id} failed:`, e.message);
+        }
+      } catch (err: any) {
+         console.warn('[ERP SYNC ERROR] Unexpected error updating on ERP:', err.message);
+      }
+    }
+
     if (index === -1) {
-      return res.status(404).json({ error: 'Product not found' });
+      const newProd = { id, ...req.body };
+      products.unshift(newProd);
+      return res.json(newProd);
     }
     products[index] = {
       ...products[index],
@@ -1131,11 +1280,31 @@ async function startServer() {
   });
 
   // DELETE /api/products/:id - Admin delete product
-  app.delete('/api/products/:id', (req, res) => {
+  app.delete('/api/products/:id', async (req, res) => {
     const { id } = req.params;
+
+    if (erpConfig.url && erpConfig.apiKey) {
+      try {
+        const headers = {
+          'x-api-key': erpConfig.apiKey,
+          'X-Inventory-Api-Key': erpConfig.apiKey,
+          'Authorization': `Bearer ${erpConfig.apiKey}`,
+          'api-key': erpConfig.apiKey
+        };
+        console.log(`[ERP SYNC] Deleting product ${id} from ERP...`);
+        try {
+          await axios.delete(`${erpConfig.url}/api/public/products/${id}`, { headers, timeout: 5000 });
+        } catch (e: any) {
+          console.warn(`[ERP SYNC] DELETE /api/public/products/${id} failed:`, e.message);
+        }
+      } catch (err: any) {
+         console.warn('[ERP SYNC ERROR] Unexpected error deleting on ERP:', err.message);
+      }
+    }
+
     const index = products.findIndex(p => p.id === id);
     if (index === -1) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ error: 'Product not found {DEBUG}' });
     }
     const deleted = products.splice(index, 1)[0];
     res.json({ success: true, deleted });
@@ -1146,7 +1315,7 @@ async function startServer() {
     const { productId, userName, rating, comment } = req.body;
     const prod = products.find(p => p.id === productId);
     if (!prod) {
-      return res.status(404).json({ error: 'Product not found' });
+      return res.status(404).json({ error: 'Product not found {DEBUG}' });
     }
     const newRev = {
       id: `rev-${Date.now()}`,

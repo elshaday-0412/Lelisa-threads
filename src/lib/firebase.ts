@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, initializeAuth, browserLocalPersistence, browserPopupRedirectResolver } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -22,4 +23,12 @@ export const auth = isNewApp
     })
   : getAuth(firebaseApp);
 
-export const db = getFirestore(firebaseApp);
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(firebaseApp, { experimentalForceLongPolling: true }, firebaseConfigJson.firestoreDatabaseId);
+} catch (e) {
+  dbInstance = getFirestore(firebaseApp, firebaseConfigJson.firestoreDatabaseId);
+}
+export const db = dbInstance;
+
+export const storage = getStorage(firebaseApp);

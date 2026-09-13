@@ -20,22 +20,22 @@ export const Footer: React.FC = () => {
         <div className="flex items-center gap-4 justify-center md:justify-start">
           <Truck className="w-5 h-5 text-[#C5A059] shrink-0" />
           <div>
-            <h4 className="text-[11px] uppercase tracking-[0.2em] font-semibold text-white">Global Express Delivery</h4>
-            <p className="text-xs text-white/60 font-light mt-0.5">Addis Ababa, Europe, & North America</p>
+            <h4 className="text-[11px] uppercase tracking-[0.2em] font-semibold text-white">{t.expressDelivery}</h4>
+            <p className="text-xs text-white/60 font-light mt-0.5">{t.footerExpressDesc}</p>
           </div>
         </div>
         <div className="flex items-center gap-4 justify-center md:justify-start">
           <ShieldCheck className="w-5 h-5 text-[#C5A059] shrink-0" />
           <div>
-            <h4 className="text-[11px] uppercase tracking-[0.2em] font-semibold text-white">Authentic Craftsmanship</h4>
-            <p className="text-xs text-white/60 font-light mt-0.5">Handwoven by master artisans in Ethiopia</p>
+            <h4 className="text-[11px] uppercase tracking-[0.2em] font-semibold text-white">{t.artisanCrafted}</h4>
+            <p className="text-xs text-white/60 font-light mt-0.5">{t.footerArtisanDesc}</p>
           </div>
         </div>
         <div className="flex items-center gap-4 justify-center md:justify-start">
           <RefreshCw className="w-5 h-5 text-[#C5A059] shrink-0" />
           <div>
-            <h4 className="text-[11px] uppercase tracking-[0.2em] font-semibold text-white">Bespoke Custom Fitting</h4>
-            <p className="text-xs text-white/60 font-light mt-0.5">Tailored measurements for weddings & Mels</p>
+            <h4 className="text-[11px] uppercase tracking-[0.2em] font-semibold text-white">{t.bespokeFitting}</h4>
+            <p className="text-xs text-white/60 font-light mt-0.5">{t.bespokeFittingDesc}</p>
           </div>
         </div>
       </div>
@@ -68,7 +68,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div>
-          <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mb-5">Collections</h4>
+          <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mb-5">{t.collectionsHeader}</h4>
           <ul className="space-y-2.5 text-xs text-white/70 font-light">
             <li>
               <Link to="/shop?category=Habesha+Kemis" className="hover:text-[#C5A059] transition-colors">
@@ -104,7 +104,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div>
-          <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mb-5">Cultural Heritage</h4>
+          <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mb-5">{t.culturalHeritageHeader}</h4>
           <ul className="space-y-2.5 text-xs text-white/70 font-light">
             <li>
               <Link to="/shop?region=Amhara" className="hover:text-[#C5A059] transition-colors">
@@ -135,7 +135,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div>
-          <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mb-5">VIP Heritage Circle</h4>
+          <h4 className="text-[11px] uppercase tracking-[0.2em] text-[#C5A059] font-bold mb-5">{t.vipHeritageCircle}</h4>
           <p className="text-xs text-white/60 mb-4 font-light">
             Receive private notifications for seasonal weaves and bespoke bridal releases.
           </p>
@@ -143,7 +143,7 @@ export const Footer: React.FC = () => {
             <input
               type="email"
               required
-              placeholder="Your email address"
+              placeholder={t.emailPlaceholder}
               className="bg-white/10 text-xs px-3 py-2 rounded-l-sm focus:outline-none focus:ring-1 focus:ring-[#C5A059] text-white placeholder-white/40 w-full"
             />
             <button

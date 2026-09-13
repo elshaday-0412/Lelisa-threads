@@ -14,7 +14,6 @@ export const AuthModal: React.FC = () => {
   const {
     isAuthModalOpen,
     setIsAuthModalOpen,
-    loginAsDemoAdmin,
     setUser,
     pendingPhoneUser,
     setPendingPhoneUser,
@@ -29,6 +28,7 @@ export const AuthModal: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
@@ -51,6 +51,7 @@ export const AuthModal: React.FC = () => {
   const [phoneFollowUpUser, setPhoneFollowUpUser] = useState<any>(null);
   const [phoneFollowUpInput, setPhoneFollowUpInput] = useState('');
   const [phoneFollowUpPasswordInput, setPhoneFollowUpPasswordInput] = useState('');
+  const [phoneFollowUpConfirmPasswordInput, setPhoneFollowUpConfirmPasswordInput] = useState('');
 
   // Pending Google linking state (when logging in via Google for an existing Email/Password account)
   const [pendingGoogleLink, setPendingGoogleLink] = useState<{ email: string; credential: any } | null>(null);
@@ -71,6 +72,7 @@ export const AuthModal: React.FC = () => {
       setPhoneFollowUpUser(null);
       setPendingPhoneUser(null);
       setPhoneFollowUpPasswordInput('');
+      setPhoneFollowUpConfirmPasswordInput('');
       setUser(null);
       showToast('Sign In Cancelled', 'A valid phone number is required to sign in.', 'info');
     }
@@ -139,6 +141,10 @@ export const AuthModal: React.FC = () => {
         showToast('Signed In', `Welcome back, ${loggedUser.fullName}!`, 'success');
         setIsAuthModalOpen(false);
         executePendingAction();
+        
+        if (loggedUser.role === 'ADMIN') {
+          navigate('/admin');
+        }
       }
     } catch (err: any) {
       console.warn('Firebase Auth notice:', err);
@@ -179,10 +185,7 @@ export const AuthModal: React.FC = () => {
             title: 'Password Error',
             message: 'The password you entered is incorrect. Please check your password and try again.'
           });
-        } else if (email.toLowerCase().includes('admin')) {
-          loginAsDemoAdmin();
-          navigate('/admin');
-          setIsAuthModalOpen(false);
+
         } else {
           setAuthError({
             title: 'Sign In Failed',
@@ -223,6 +226,10 @@ export const AuthModal: React.FC = () => {
       showToast('Firebase Auth', `Signed in with Google as ${googleUser.fullName}`, 'success');
       setIsAuthModalOpen(false);
       executePendingAction();
+      
+      if (googleUser.role === 'ADMIN') {
+        navigate('/admin');
+      }
     } catch (err: any) {
       const code = err?.code || '';
       const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
@@ -322,6 +329,11 @@ export const AuthModal: React.FC = () => {
 
       // If user typed a password (at least 6 characters), attempt linking email/password credential
       if (phoneFollowUpPasswordInput && phoneFollowUpPasswordInput.trim().length >= 6) {
+        if (phoneFollowUpPasswordInput !== phoneFollowUpConfirmPasswordInput) {
+          showToast('Validation Error', 'Passwords do not match.', 'error');
+          setIsLoading(false);
+          return;
+        }
         try {
           const linkedUser = await FirebaseAuthService.linkPasswordToCurrentUser(phoneFollowUpPasswordInput.trim());
           targetUser = { ...linkedUser, phone: phoneFollowUpInput.trim() };
@@ -336,6 +348,7 @@ export const AuthModal: React.FC = () => {
       setPhoneFollowUpUser(null);
       setPendingPhoneUser(null);
       setPhoneFollowUpPasswordInput('');
+      setPhoneFollowUpConfirmPasswordInput('');
       showToast('Profile Saved', 'Your profile details are updated and you are now signed in!', 'success');
       setIsAuthModalOpen(false);
       executePendingAction();
@@ -346,6 +359,7 @@ export const AuthModal: React.FC = () => {
       setPhoneFollowUpUser(null);
       setPendingPhoneUser(null);
       setPhoneFollowUpPasswordInput('');
+      setPhoneFollowUpConfirmPasswordInput('');
       setIsAuthModalOpen(false);
       executePendingAction();
     } finally {
@@ -548,6 +562,39 @@ export const AuthModal: React.FC = () => {
                     </p>
                   )}
                 </div>
+
+                {phoneFollowUpPasswordInput.length >= 6 && (
+                  <div>
+                    <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5">
+                      Confirm Account Password <span className="text-[#C5A059] text-[10px] font-semibold lowercase">(required to save)</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute left-3 top-3" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Re-enter your password"
+                        value={phoneFollowUpConfirmPasswordInput}
+                        onChange={e => {
+                          setPhoneFollowUpConfirmPasswordInput(e.target.value);
+                          if (authError) setAuthError(null);
+                        }}
+                        className={`w-full pl-10 pr-3 py-2.5 text-xs bg-white dark:bg-[#242424] text-gray-900 dark:text-white border ${
+                          phoneFollowUpConfirmPasswordInput && phoneFollowUpPasswordInput !== phoneFollowUpConfirmPasswordInput
+                            ? 'border-red-500 dark:border-red-600'
+                            : phoneFollowUpConfirmPasswordInput && phoneFollowUpPasswordInput === phoneFollowUpConfirmPasswordInput
+                            ? 'border-emerald-500/80 dark:border-emerald-600/80'
+                            : 'border-gray-300 dark:border-[#3D3D3D]'
+                        } rounded-sm focus:outline-none focus:border-[#C5A059] placeholder:text-gray-400 dark:placeholder:text-gray-500 font-medium transition-all`}
+                      />
+                    </div>
+                    {phoneFollowUpConfirmPasswordInput && phoneFollowUpPasswordInput !== phoneFollowUpConfirmPasswordInput && (
+                      <p className="text-[10px] text-red-500 dark:text-red-400 mt-1 flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3 h-3" /> Passwords do not match
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <button
                   type="submit"
@@ -860,6 +907,39 @@ export const AuthModal: React.FC = () => {
                   )}
                 </div>
 
+                {isRegistering && (
+                  <div>
+                    <label className="block text-[11px] uppercase tracking-wider font-bold text-gray-900 dark:text-gray-100 mb-1.5">
+                      Confirm Password <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-gray-500 dark:text-gray-400 absolute left-3 top-3" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="e.g. Pass123"
+                        value={confirmPassword}
+                        onChange={e => {
+                          setConfirmPassword(e.target.value);
+                          if (authError) setAuthError(null);
+                        }}
+                        className={`w-full pl-10 pr-3 py-2.5 text-xs bg-white dark:bg-[#242424] text-gray-900 dark:text-white border ${
+                          isRegistering && confirmPassword && password !== confirmPassword
+                            ? 'border-amber-500 dark:border-amber-600'
+                            : isRegistering && confirmPassword && password === confirmPassword
+                            ? 'border-emerald-500/80 dark:border-emerald-600/80'
+                            : 'border-gray-300 dark:border-[#3D3D3D]'
+                        } rounded-sm focus:outline-none focus:border-[#C5A059] focus:ring-1 focus:ring-[#C5A059] placeholder:text-gray-500 dark:placeholder:text-gray-400 font-medium transition-all`}
+                      />
+                    </div>
+                    {confirmPassword && password !== confirmPassword && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1 font-medium">
+                        <AlertCircle className="w-3 h-3" /> Passwords do not match
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -879,20 +959,13 @@ export const AuthModal: React.FC = () => {
                   <Globe className="w-4 h-4 text-[#C5A059]" /> Sign in with Google (Firebase)
                 </button>
               </div>
+              
 
-              {/* Admin Demo Portal & Session Clear */}
+
+              {/* Session Clear */}
               <div className="mt-6 pt-5 border-t border-gray-200 dark:border-[#333]">
                 <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      loginAsDemoAdmin();
-                      navigate('/admin');
-                    }}
-                    className="flex-1 px-3 py-2.5 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs font-bold rounded-sm transition-colors text-center shadow-xs"
-                  >
-                    👑 Admin Portal Demo
-                  </button>
+
                   <button
                     type="button"
                     onClick={() => {

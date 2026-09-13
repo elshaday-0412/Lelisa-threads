@@ -10,7 +10,7 @@ import { Package, Heart, MapPin, LogOut, ShieldCheck, User as UserIcon, Plus, Ch
 
 export const UserDashboard: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, logout, formatPrice, wishlistIds, showToast, setUser } = useApp();
+  const { user, logout, formatPrice, wishlistIds, showToast, setUser, t } = useApp();
 
   const activeTab = searchParams.get('tab') || 'orders';
   const [orders, setOrders] = useState<Order[]>([]);
@@ -49,19 +49,38 @@ export const UserDashboard: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    async function fetchAccountData() {
+    let unsubscribe = () => {};
+
+    async function setupOrderSubscription() {
       if (!user) return;
       setLoading(true);
+      
       try {
+        // Initial fetch via API to trigger ERP sync if needed
         const oList = await OrderService.getOrders(user.id);
         setOrders(oList);
       } catch (err) {
-        console.error('Failed fetching user dashboard data', err);
+        console.error('Failed fetching initial user dashboard data', err);
       } finally {
         setLoading(false);
       }
+
+      // Smooth fast-refresh via Firestore realtime listener
+      try {
+        const { FirestoreOrderService } = await import('../services/firebaseService.js');
+        unsubscribe = FirestoreOrderService.subscribeToOrders(user.id, (updatedOrders) => {
+          setOrders(updatedOrders);
+        });
+      } catch (err) {
+        console.warn('Could not setup smooth realtime orders listener', err);
+      }
     }
-    fetchAccountData();
+    
+    setupOrderSubscription();
+
+    return () => {
+      unsubscribe();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -236,7 +255,7 @@ export const UserDashboard: React.FC = () => {
               Welcome, {user.fullName}
             </h1>
             <p className="text-sm text-gray-500 font-light mt-2">
-              Email: {user.email} • Role: {user.role}
+              {t.emailLabel} {user.email} • {t.roleLabel} {user.role}
             </p>
           </div>
 
@@ -260,7 +279,7 @@ export const UserDashboard: React.FC = () => {
             }`}
           >
             <Package className="w-4 h-4" />
-            My Orders ({orders.length})
+            {t.myOrdersTab} ({orders.length})
           </button>
 
           <button
@@ -272,7 +291,7 @@ export const UserDashboard: React.FC = () => {
             }`}
           >
             <Heart className="w-4 h-4" />
-            Favorites ({wishlistIds.length})
+            {t.favoritesTab} ({wishlistIds.length})
           </button>
 
           <button
@@ -284,7 +303,7 @@ export const UserDashboard: React.FC = () => {
             }`}
           >
             <MapPin className="w-4 h-4" />
-            Addresses &amp; Profile ({user.addresses.length})
+            {t.addressesProfileTab} ({user.addresses.length})
           </button>
         </div>
 
@@ -297,10 +316,8 @@ export const UserDashboard: React.FC = () => {
                 <AlertCircle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider mb-1">Cancellations &amp; Support</h3>
-                <p className="text-[11px] text-gray-600 leading-relaxed max-w-3xl">
-                  You can instantly cancel your order below if its status is still <strong>RECEIVED (NEW)</strong>. Once it changes to "Preparing" or "Shipped", please contact our support team to request a manual cancellation. Refunds for Chapa digital payments are processed within 3-5 business days back to your original payment method. Cash on Delivery orders can be safely cancelled before dispatch.
-                </p>
+                <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider mb-1">{t.cancellationsSupport}</h3>
+                <p className="text-[11px] text-gray-600 leading-relaxed max-w-3xl" dangerouslySetInnerHTML={{ __html: t.cancellationsSupportDesc }} />
               </div>
             </div>
 
@@ -435,7 +452,7 @@ export const UserDashboard: React.FC = () => {
             {wishlistProducts.length === 0 ? (
               <div className="text-center py-16 bg-white border border-[#E5E1DA] rounded-sm">
                 <Heart className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <h3 className="text-xl font-serif text-[#1A1A1A] mb-1">Your Favorites is Empty</h3>
+                <h3 className="text-xl font-serif text-[#1A1A1A] mb-1">{t.favoritesEmpty}</h3>
                 <p className="text-xs text-gray-500 mb-6">
                   Save your favorite kemis, suits, and necklaces for upcoming weddings.
                 </p>
@@ -535,7 +552,7 @@ export const UserDashboard: React.FC = () => {
                           return;
                         }
                         try {
-                          const updatedUser = await FirebaseAuthService.linkPasswordToCurrentUser(newPasswordVal);
+                          const updatedUser = await FirebaseAuthService.linkPasswordToCurrentUser(newPasswordVal, user);
                           setUser(updatedUser);
                           setIsSettingPassword(false);
                           setNewPasswordVal('');

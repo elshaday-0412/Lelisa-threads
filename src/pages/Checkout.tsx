@@ -6,7 +6,7 @@ import { ShieldCheck, Truck, CheckCircle2, Lock, ArrowRight, Smartphone, Buildin
 import { Order, PaymentReceipt } from '../types/index.js';
 
 export const Checkout: React.FC = () => {
-  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, requireAuth, currencyMode, exchangeRate } = useApp();
+  const { cart, cartSubtotal, formatPrice, clearCart, user, showToast, requireAuth, currencyMode, exchangeRate, t } = useApp();
   const navigate = useNavigate();
 
   const [customerName, setCustomerName] = useState(user ? user.fullName : '');
@@ -47,7 +47,7 @@ export const Checkout: React.FC = () => {
   if (cart.length === 0 && !confirmedOrder) {
     return (
       <div className="min-h-screen bg-[#FCFBFA] py-20 px-6 md:px-16 text-center">
-        <h2 className="text-3xl font-serif text-[#1A1A1A] mb-2">Your Bag is Empty</h2>
+        <h2 className="text-3xl font-serif text-[#1A1A1A] mb-2">{t.checkoutEmptyTitle}</h2>
         <p className="text-xs text-gray-500 mb-6">
           Please add Habesha garments or jewelry to your bag before checking out.
         </p>
@@ -199,34 +199,34 @@ export const Checkout: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
-                <span className="text-gray-500">Order Reference</span>
+                <span className="text-gray-500">{t.orderReference}</span>
                 <span className="font-bold text-[#1A1A1A]">{confirmedOrder.orderNumber}</span>
               </div>
               <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
-                <span className="text-gray-500">Payment Gateway</span>
+                <span className="text-gray-500">{t.paymentGateway}</span>
                 <span className="font-bold text-[#C5A059]">{confirmedOrder.paymentMethod}</span>
               </div>
               <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
-                <span className="text-gray-500">Transaction Reference</span>
+                <span className="text-gray-500">{t.transactionReference}</span>
                 <span className="font-mono font-bold text-[#1A1A1A]">
                   {confirmedOrder.transactionRef || 'COD-OFFLINE'}
                 </span>
               </div>
               <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
-                <span className="text-gray-500">Authorization Code</span>
+                <span className="text-gray-500">{t.authCode}</span>
                 <span className="font-mono font-bold text-green-700">
                   {confirmedOrder.paymentGatewayResponse || 'APPROVED'}
                 </span>
               </div>
               {confirmedOrder.cardLastFour && (
                 <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
-                  <span className="text-gray-500">Card Billed</span>
+                  <span className="text-gray-500">{t.cardBilled}</span>
                   <span className="font-semibold text-[#1A1A1A]">•••• •••• •••• {confirmedOrder.cardLastFour}</span>
                 </div>
               )}
               {confirmedOrder.mobileWalletPhone && (
                 <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
-                  <span className="text-gray-500">Mobile Wallet Number</span>
+                  <span className="text-gray-500">{t.walletNumber}</span>
                   <span className="font-semibold text-[#1A1A1A]">{confirmedOrder.mobileWalletPhone}</span>
                 </div>
               )}
@@ -235,13 +235,13 @@ export const Checkout: React.FC = () => {
                 <span className="font-semibold text-[#1A1A1A]">{confirmedOrder.shippingAddress}, {confirmedOrder.city}</span>
               </div>
               <div className="flex justify-between border-b border-[#E5E1DA] pb-2.5">
-                <span className="text-gray-500">Total Paid</span>
+                <span className="text-gray-500">{t.totalPaid}</span>
                 <span className="font-serif font-bold text-base text-[#1A1A1A]">{formatPrice(confirmedOrder.totalAmount)}</span>
               </div>
             </div>
 
             <div className="mt-4 pt-3 border-t border-[#E5E1DA] flex justify-between items-center text-[11px] text-gray-500">
-              <span>Receipt issued: {new Date(confirmedOrder.createdAt).toLocaleString()}</span>
+              <span>{t.receiptIssued} {new Date(confirmedOrder.createdAt).toLocaleString()}</span>
               <button
                 onClick={() => window.print()}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#E5E1DA] hover:bg-gray-100 text-[#1A1A1A] text-xs font-semibold rounded-sm transition-colors"
@@ -300,7 +300,7 @@ export const Checkout: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Sara Tadesse"
+                    
                     value={customerName}
                     onChange={e => setCustomerName(e.target.value)}
                     className="w-full px-3 py-2.5 text-xs bg-[#FCFBFA] text-[#1A1A1A] border border-[#E5E1DA] rounded-sm focus:outline-none focus:border-[#C5A059]"
@@ -390,7 +390,7 @@ export const Checkout: React.FC = () => {
                 >
                   <CreditCard className="w-5 h-5 text-[#C5A059] shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Chapa Secure Checkout</h3>
+                    <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">{t.chapaSecureCheckout}</h3>
                     <p className="text-[11px] text-gray-500 mt-1">
                       Telebirr • CBE Birr • Awash Birr • Visa / Mastercard
                     </p>
@@ -407,7 +407,7 @@ export const Checkout: React.FC = () => {
                 >
                   <Truck className="w-5 h-5 text-[#C5A059] shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">Cash on Delivery</h3>
+                    <h3 className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">{t.cashOnDelivery}</h3>
                     <p className="text-[11px] text-gray-500 mt-1">
                       Pay Cash or Telebirr upon doorstep delivery (Addis Ababa)
                     </p>
@@ -428,16 +428,16 @@ export const Checkout: React.FC = () => {
                 <div className="bg-[#FCFBFA] text-[#1A1A1A] p-5 border border-[#E5E1DA] rounded-sm space-y-3 animate-in fade-in duration-300">
                   <div className="flex items-center gap-2 pb-2 border-b border-[#E5E1DA]">
                     <ShieldCheck className="w-4 h-4 text-green-600" />
-                    <span className="text-xs font-bold text-[#1A1A1A]">Chapa Secure Digital Payment</span>
+                    <span className="text-xs font-bold text-[#1A1A1A]">{t.chapaDigitalMethod}</span>
                   </div>
                   <p className="text-xs text-gray-600 leading-relaxed">
                     You will be securely redirected to Chapa to complete your payment via <strong>Telebirr</strong>, <strong>CBE Birr</strong>, <strong>Awash Birr</strong>, or <strong>Visa/Mastercard</strong>.
                   </p>
                   <div className="pt-3 border-t border-[#E5E1DA]/50">
-                    <p className="text-[11px] font-bold text-[#1A1A1A] mb-1">Cancellation & Refund Policy:</p>
+                    <p className="text-[11px] font-bold text-[#1A1A1A] mb-1">{t.cancellationPolicy}</p>
                     <ul className="text-[11px] text-gray-600 space-y-1 list-disc pl-4">
-                      <li>Orders can be cancelled from your Dashboard before they are marked as "Preparing" or "Shipped".</li>
-                      <li>Cancelled digital payments are automatically refunded to your original payment method (Telebirr/Card) within 3-5 business days.</li>
+                      <li>{t.chapaCancelRule}</li>
+                      <li>{t.chapaRefundPolicy}</li>
                     </ul>
                   </div>
                 </div>
@@ -447,16 +447,16 @@ export const Checkout: React.FC = () => {
                 <div className="bg-amber-50/60 p-5 border border-amber-200/80 rounded-sm space-y-3 animate-in fade-in duration-300">
                   <div className="flex items-center gap-2 pb-2 border-b border-amber-200/50">
                     <Truck className="w-4 h-4 text-amber-700" />
-                    <p className="text-xs font-bold text-amber-900">Addis Ababa Doorstep Delivery</p>
+                    <p className="text-xs font-bold text-amber-900">{t.codMethod}</p>
                   </div>
                   <p className="text-[11px] text-amber-800 leading-relaxed">
                     You will pay via Cash or direct CBE Mobile transfer upon receiving your garment. Please ensure someone is present at the delivery address.
                   </p>
                   <div className="pt-3 border-t border-amber-200/50">
-                    <p className="text-[11px] font-bold text-amber-900 mb-1">Cancellation Policy:</p>
+                    <p className="text-[11px] font-bold text-amber-900 mb-1">{t.cancellationPolicyCod}</p>
                     <ul className="text-[11px] text-amber-800 space-y-1 list-disc pl-4">
-                      <li>You may cancel your order at any time from your Dashboard before the driver is dispatched.</li>
-                      <li>If you wish to cancel at the door, a small 150 ETB delivery fee may apply to compensate our drivers.</li>
+                      <li>{t.codCancelRule}</li>
+                      <li>{t.codCancelFee}</li>
                     </ul>
                   </div>
                 </div>
@@ -530,10 +530,10 @@ export const Checkout: React.FC = () => {
                 className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-[0.2em] font-bold py-4 rounded-sm transition-colors mt-8 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
               >
                 {isSubmitting
-                  ? 'Connecting to Gateway...'
+                  ? t.connectingGateway
                   : paymentMethod === 'CASH_ON_DELIVERY'
-                    ? 'Place Order (Cash on Delivery)'
-                    : 'Pay with Chapa Secure Checkout'}
+                    ? t.placeOrderCOD
+                    : t.payWithChapa}
                 <ArrowRight className="w-4 h-4" />
               </button>
 

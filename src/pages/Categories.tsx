@@ -37,7 +37,7 @@ export const Categories: React.FC = () => {
     <div className="bg-[#FCFBFA] text-[#1A1A1A] min-h-screen py-16 px-6 md:px-16">
       <SEO 
         title="Collections & Categories"
-        description="Explore our curated collections of Ethiopian cultural attire including authentic Habesha Kemis, Men's Traditional Wear, and Wedding Collections."
+        description="Explore our curated collections of Ethiopian cultural attire including authentic Habesha Kemis, T-Shirts, Bags, and Sweaters."
         keywords="Ethiopian Collections, Habesha Dresses, Traditional Wear, African Wedding Attire, Wanofi Collections"
       />
       <div className="max-w-7xl mx-auto">

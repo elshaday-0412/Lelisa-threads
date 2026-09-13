@@ -253,51 +253,61 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     import('../services/firebaseService.js').then(({ FirebaseAuthService, FirestoreUserDataService, isValidPhone }) => {
       const unsubscribe = FirebaseAuthService.onAuthChange(async authUser => {
-        if (authUser) {
-          setUser(authUser);
-          setPendingPhoneUser(null);
-          // Load user-specific bag and favorites from Firebase Firestore
-          const userData = await FirestoreUserDataService.getUserData(authUser.id);
-          
-          setCart(prevCart => {
-            if (prevCart.length === 0) return userData.cart;
-            const merged = [...userData.cart];
-            let hasChanges = false;
-            for (const item of prevCart) {
-              const existingIndex = merged.findIndex(
-                mItem => mItem.product.id === item.product.id && 
-                        mItem.selectedSize === item.selectedSize && 
-                        mItem.selectedColor === item.selectedColor
-              );
-              if (existingIndex > -1) {
-                if (merged[existingIndex].quantity < item.quantity) {
-                  merged[existingIndex].quantity = item.quantity;
-                  hasChanges = true;
+        try {
+          if (authUser) {
+            setUser(authUser);
+            setPendingPhoneUser(null);
+            
+            try {
+              // Load user-specific bag and favorites from Firebase Firestore
+              const userData = await FirestoreUserDataService.getUserData(authUser.id);
+              
+              setCart(prevCart => {
+                if (prevCart.length === 0) return userData.cart;
+                const merged = [...userData.cart];
+                let hasChanges = false;
+                for (const item of prevCart) {
+                  const existingIndex = merged.findIndex(
+                    mItem => mItem.product.id === item.product.id && 
+                             mItem.selectedSize === item.selectedSize && 
+                             mItem.selectedColor === item.selectedColor
+                  );
+                  if (existingIndex > -1) {
+                    if (merged[existingIndex].quantity < item.quantity) {
+                      merged[existingIndex].quantity = item.quantity;
+                      hasChanges = true;
+                    }
+                  } else {
+                    merged.push(item);
+                    hasChanges = true;
+                  }
                 }
-              } else {
-                merged.push(item);
-                hasChanges = true;
-              }
+                if (hasChanges) {
+                  FirestoreUserDataService.saveUserCart(authUser.id, merged);
+                }
+                return merged;
+              });
+              
+              setWishlistIds(prevWishlist => {
+                if (prevWishlist.length === 0) return userData.wishlist;
+                const merged = Array.from(new Set([...userData.wishlist, ...prevWishlist]));
+                if (merged.length !== userData.wishlist.length) {
+                  FirestoreUserDataService.saveUserWishlist(authUser.id, merged);
+                }
+                return merged;
+              });
+            } catch (firestoreErr) {
+              console.error('Error fetching user data from Firestore:', firestoreErr);
             }
-            if (hasChanges) {
-              FirestoreUserDataService.saveUserCart(authUser.id, merged);
-            }
-            return merged;
-          });
-          
-          setWishlistIds(prevWishlist => {
-            if (prevWishlist.length === 0) return userData.wishlist;
-            const merged = Array.from(new Set([...userData.wishlist, ...prevWishlist]));
-            if (merged.length !== userData.wishlist.length) {
-              FirestoreUserDataService.saveUserWishlist(authUser.id, merged);
-            }
-            return merged;
-          });
-        } else {
-          // Do not wipe localStorage here, because iframe cross-origin restrictions might cause Firebase Auth to lose session momentarily upon redirect from payment gateway.
-          // Explicit logouts are handled manually by the logout() function.
+          } else {
+            // Do not wipe localStorage here, because iframe cross-origin restrictions might cause Firebase Auth to lose session momentarily upon redirect from payment gateway.
+            // Explicit logouts are handled manually by the logout() function.
+          }
+        } catch (err) {
+          console.error('Auth change error:', err);
+        } finally {
+          setAuthLoading(false);
         }
-        setAuthLoading(false);
       });
       return () => unsubscribe();
     }).catch(e => {

@@ -6,6 +6,7 @@ import {
   GoogleAuthProvider,
   EmailAuthProvider,
   linkWithCredential,
+  updatePassword,
   signInWithPopup,
   AuthCredential,
   User as FirebaseUser,
@@ -25,7 +26,8 @@ import {
   runTransaction,
   onSnapshot
 } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase.js';
+import { auth, db, storage } from '../lib/firebase.js';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Order, User, CartItem } from '../types/index.js';
 import { ExternalInventoryService } from './externalInventoryService.js';
 
@@ -75,10 +77,10 @@ export const FirestoreOrderService = {
   async createOrder(order: Order): Promise<Order> {
     try {
       const docRef = doc(db, ORDERS_COLLECTION, order.id);
-      await setDoc(docRef, sanitizeForFirestore({
+      await setDoc(docRef, {
         ...order,
         createdAt: order.createdAt || new Date().toISOString()
-      }));
+      });
 
       // Notify Central Inventory System of stock reservation
       const orderItemsToReserve = order.items.map(item => ({
@@ -101,6 +103,40 @@ export const FirestoreOrderService = {
     } catch (err) {
       console.error('Error creating order in Firestore:', err);
       return order;
+    }
+  },
+
+  
+  subscribeToOrders(userId: string | undefined, onUpdate: (orders: Order[]) => void): () => void {
+    try {
+      const colRef = collection(db, ORDERS_COLLECTION);
+      let q = colRef;
+      // Note: for robustness with complex rules, we listen to all orders and filter in memory 
+      // if it's a small store, or use a strict query if user is defined.
+      // To ensure it doesn't fail on missing indexes, we just listen to the query.
+      if (userId && userId !== 'guest' && userId !== 'user-customer' && userId !== 'user-admin') {
+         q = query(colRef, where('userId', '==', userId)) as any;
+      }
+      
+      return onSnapshot(q, (snapshot) => {
+        const ordersList: Order[] = [];
+        snapshot.forEach(docSnap => {
+          ordersList.push(docSnap.data() as Order);
+        });
+        
+        let result = ordersList;
+        if (userId && userId !== 'user-admin') {
+          result = ordersList.filter(o => o.userId === userId || o.customerEmail?.toLowerCase() === userId.toLowerCase());
+        }
+        
+        result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        onUpdate(result);
+      }, (err) => {
+        console.warn('Orders subscription error:', err);
+      });
+    } catch (err) {
+      console.warn('Could not subscribe to orders', err);
+      return () => {};
     }
   },
 
@@ -141,10 +177,10 @@ export const FirestoreOrderService = {
 
   async updateOrderStatus(orderId: string, status: Order['status']): Promise<void> {
     const docRef = doc(db, ORDERS_COLLECTION, orderId);
-    await updateDoc(docRef, sanitizeForFirestore({
+    await updateDoc(docRef, {
       status,
       updatedAt: new Date().toISOString()
-    }));
+      });
   },
 
   async updateOrderPayment(orderId: string, updates: {
@@ -157,10 +193,10 @@ export const FirestoreOrderService = {
   }): Promise<void> {
     try {
       const docRef = doc(db, ORDERS_COLLECTION, orderId);
-      await updateDoc(docRef, sanitizeForFirestore({
+      await updateDoc(docRef, {
         ...updates,
         updatedAt: new Date().toISOString()
-      }));
+      });
     } catch (err) {
       console.warn('Firestore updateOrderPayment notice:', err);
     }
@@ -258,7 +294,7 @@ export const FirebaseAuthService = {
         updatedAt: new Date().toISOString()
       });
     } catch (fsErr) {
-      console.warn('Firestore user registration setDoc notice:', fsErr);
+      console.error('Firestore user registration setDoc notice:', fsErr); throw fsErr;
     }
 
     return userProfile;
@@ -299,7 +335,7 @@ export const FirebaseAuthService = {
         updatedAt: new Date().toISOString()
       }).catch(() => {});
     } catch (fsErr) {
-      console.warn('Firestore doc fetch notice during email login:', fsErr);
+      console.error('Firestore doc fetch notice during email login:', fsErr); throw fsErr;
     }
 
     return fallbackUser;
@@ -352,7 +388,7 @@ export const FirebaseAuthService = {
           updatedAt: new Date().toISOString()
         });
       } catch (fsErr) {
-        console.warn('Firestore doc sync notice during Google login:', fsErr);
+        console.error('Firestore doc sync notice during Google login:', fsErr); throw fsErr;
       }
 
       return { user: googleUser, isNewUser };
@@ -408,27 +444,64 @@ export const FirebaseAuthService = {
     return updatedUser;
   },
 
-  async linkPasswordToCurrentUser(pass: string): Promise<User> {
+  async linkPasswordToCurrentUser(pass: string, currentUserProfile?: User): Promise<User> {
     const currentUser = auth.currentUser;
     if (!currentUser || !currentUser.email) {
       throw new Error('No authenticated user found to link password.');
     }
-    const emailCred = EmailAuthProvider.credential(currentUser.email, pass);
-    const linkRes = await linkWithCredential(currentUser, emailCred);
-    const fbUser = linkRes.user;
+    
+    let fbUser = currentUser;
+    const hasPassword = currentUser.providerData.some(p => p.providerId === 'password');
+    
+    if (hasPassword) {
+      await updatePassword(currentUser, pass);
+    } else {
+      const emailCred = EmailAuthProvider.credential(currentUser.email, pass);
+      const linkRes = await linkWithCredential(currentUser, emailCred);
+      fbUser = linkRes.user;
+    }
 
     try {
       const userDocRef = doc(db, USERS_COLLECTION, fbUser.uid);
-      await updateDoc(userDocRef, { signupMethod: 'EMAIL_AND_GOOGLE' }).catch(() => {});
       const docSnap = await getDoc(userDocRef).catch(() => null);
+      
       if (docSnap && docSnap.exists()) {
-        return docSnap.data() as User;
+        await updateDoc(userDocRef, { signupMethod: 'EMAIL_AND_GOOGLE' }).catch(() => {});
+        const updatedSnap = await getDoc(userDocRef);
+        return updatedSnap.data() as User;
+      } else {
+        // Document didn't exist in Firestore, create it using the current profile
+        const role: 'ADMIN' | 'USER' = (fbUser.email || '').toLowerCase().includes('admin') ? 'ADMIN' : 'USER';
+        const profileToSave: User = currentUserProfile || {
+          id: fbUser.uid,
+          email: fbUser.email || '',
+          fullName: fbUser.displayName || 'Customer',
+          phone: fbUser.phoneNumber || '',
+          role,
+          authProvider: 'email_password',
+          signupMethod: 'EMAIL_AND_GOOGLE',
+          addresses: []
+        };
+        
+        // Ensure signupMethod is updated
+        profileToSave.signupMethod = 'EMAIL_AND_GOOGLE';
+        
+        // Clean undefined values to prevent Firestore error
+        const cleanProfile = sanitizeForFirestore(profileToSave);
+        
+        await setDoc(userDocRef, {
+          ...cleanProfile,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        
+        return profileToSave;
       }
     } catch (fsErr) {
-      console.warn('Firestore update notice during password link:', fsErr);
+      console.error('Firestore update notice during password link:', fsErr); throw fsErr;
     }
 
-    return {
+    return currentUserProfile ? { ...currentUserProfile, signupMethod: 'EMAIL_AND_GOOGLE' } : {
       id: fbUser.uid,
       email: fbUser.email || '',
       fullName: fbUser.displayName || 'Customer',
@@ -477,6 +550,17 @@ export const FirebaseAuthService = {
         }
       } catch (e) {
         console.warn('Error fetching auth user profile from Firestore:', e);
+        // Ensure callback is called to prevent infinite authLoading loop
+        callback({
+          id: fbUser.uid,
+          email: fbUser.email || '',
+          fullName: fbUser.displayName || 'Habesha User',
+          phone: '',
+          role: (fbUser.email || '').toLowerCase().includes('admin') ? 'ADMIN' : 'USER',
+          authProvider: fbUser.providerData.some(p => p.providerId === 'google.com') ? 'google' : 'email_password',
+          signupMethod: fbUser.providerData.some(p => p.providerId === 'google.com') ? 'GOOGLE_POPUP' : 'EMAIL_FORM',
+          addresses: []
+        });
       }
     });
   }
@@ -642,3 +726,14 @@ export const FirestoreReviewService = {
   }
 };
 
+
+export const FirestoreStorageService = {
+  async uploadProductImage(file: File): Promise<string> {
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `product-${Date.now()}.${fileExtension}`;
+    const storageRef = ref(storage, `products/${fileName}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    return downloadURL;
+  }
+};

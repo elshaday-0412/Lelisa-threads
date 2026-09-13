@@ -213,14 +213,14 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-3 sm:gap-5">
           {/* Search Field or Expand Trigger */}
           {isSearchOpen ? (
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center animate-in fade-in zoom-in-95 duration-150">
+            <form onSubmit={handleSearchSubmit} className="hidden md:flex relative items-center animate-in fade-in zoom-in-95 duration-150">
               <input
                 type="text"
                 autoFocus
-                placeholder="Search kemis, region, tilet..."
+                placeholder={t.searchPlaceholder}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-36 sm:w-56 md:w-64 pl-3 pr-8 py-1.5 text-xs bg-white dark:bg-[#222] border border-[#E5E1DA] dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] text-[#1A1A1A] dark:text-white placeholder-gray-400"
+                className="w-48 sm:w-56 md:w-64 pl-3 pr-8 py-1.5 text-xs bg-white dark:bg-[#222] border border-[#E5E1DA] dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] text-[#1A1A1A] dark:text-white placeholder-gray-400"
               />
               <button
                 type="button"
@@ -234,7 +234,7 @@ export const Navbar: React.FC = () => {
           ) : (
             <button
               onClick={() => setIsSearchOpen(true)}
-              className="p-2 text-gray-700 dark:text-gray-300 hover:text-[#C5A059] transition-colors flex items-center gap-1.5"
+              className="hidden md:flex p-2 text-gray-700 dark:text-gray-300 hover:text-[#C5A059] transition-colors items-center gap-1.5"
               aria-label="Search items"
             >
               <Search className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -345,7 +345,7 @@ export const Navbar: React.FC = () => {
               <form onSubmit={handleSearchSubmit} className="relative">
                 <input
                   type="text"
-                  placeholder="Search Habesha Kemis, Tilet..."
+                  placeholder={t.searchMobile}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-4 py-2.5 text-xs bg-white dark:bg-[#222] border border-[#E5E1DA] dark:border-[#3D3D3D] rounded-sm focus:outline-none focus:border-[#C5A059] text-[#1A1A1A] dark:text-white"
@@ -356,14 +356,14 @@ export const Navbar: React.FC = () => {
               {/* Main Nav Links */}
               <div className="space-y-1">
                 <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-[#C5A059] block mb-2 px-1">
-                  Navigation
+                  {t.navigation}
                 </span>
                 <Link
                   to="/shop?newarrival=true"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex items-center justify-between py-2.5 px-3 rounded-sm hover:bg-gray-50 dark:hover:bg-[#222] text-xs uppercase tracking-widest font-semibold transition-colors"
                 >
-                  <span>New Arrivals</span>
+                  <span>{t.newArrivals}</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
                 <Link
@@ -371,7 +371,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex items-center justify-between py-2.5 px-3 rounded-sm hover:bg-gray-50 dark:hover:bg-[#222] text-xs uppercase tracking-widest font-semibold transition-colors"
                 >
-                  <span>Categories Gallery</span>
+                  <span>{t.categoriesGallery}</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
                 <Link
@@ -379,7 +379,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex items-center justify-between py-2.5 px-3 rounded-sm hover:bg-gray-50 dark:hover:bg-[#222] text-xs uppercase tracking-widest font-semibold transition-colors"
                 >
-                  <span>Cultural Heritage</span>
+                  <span>{t.heritage}</span>
                   <ChevronRight className="w-4 h-4 text-gray-400" />
                 </Link>
                 {user?.role === 'ADMIN' && (
@@ -399,35 +399,35 @@ export const Navbar: React.FC = () => {
               {/* Featured Category Quick-Links */}
               <div className="space-y-1.5 pt-4 border-t border-[#E5E1DA] dark:border-[#2D2D2D]">
                 <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-gray-400 block mb-2 px-1">
-                  Popular Categories
+                  {t.popularCategories}
                 </span>
                 <Link
                   to="/shop?category=Habesha+Kemis"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block text-xs text-gray-700 dark:text-gray-300 hover:text-[#C5A059] py-1 px-1 font-light"
                 >
-                  • Habesha Kemis (Women's Dresses)
+                  • {t.catHabeshaKemis}
                 </Link>
                 <Link
-                  to="/shop?category=Men%27s+Traditional+Wear"
+                  to="/shop?category=T-Shirts"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block text-xs text-gray-700 dark:text-gray-300 hover:text-[#C5A059] py-1 px-1 font-light"
                 >
-                  • Men's Traditional Wear
+                  • {t.catTShirts}
                 </Link>
                 <Link
-                  to="/shop?category=Wedding+Collection"
+                  to="/shop?category=Bags"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block text-xs text-gray-700 dark:text-gray-300 hover:text-[#C5A059] py-1 px-1 font-light"
                 >
-                  • Wedding & Mels Couture
+                  • {t.catBags}
                 </Link>
                 <Link
-                  to="/shop?category=Jewelry"
+                  to="/shop?category=Sweaters"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="block text-xs text-gray-700 dark:text-gray-300 hover:text-[#C5A059] py-1 px-1 font-light"
                 >
-                  • Axumite Filigree Jewelry
+                  • {t.catSweaters}
                 </Link>
               </div>
 
@@ -443,11 +443,15 @@ export const Navbar: React.FC = () => {
                       <button
                         onClick={() => {
                           setIsMobileMenuOpen(false);
-                          navigate('/dashboard');
+                          if (user.role.toLowerCase() === 'admin') {
+                            navigate('/admin');
+                          } else {
+                            navigate('/dashboard');
+                          }
                         }}
                         className="flex-1 bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-[10px] uppercase tracking-widest font-bold py-2 rounded-xs transition-colors"
                       >
-                        My Orders
+                        {user.role.toLowerCase() === 'admin' ? 'ADMIN PORTAL' : t.myOrders}
                       </button>
                       <button
                         onClick={() => {
@@ -457,7 +461,7 @@ export const Navbar: React.FC = () => {
                         className="px-3 bg-gray-100 hover:bg-red-50 text-black hover:text-red-600 border border-gray-300 text-[10px] uppercase tracking-widest font-bold py-2 rounded-xs transition-colors flex items-center gap-1"
                       >
                         <LogOut className="w-3 h-3 text-black" />
-                        Sign Out
+                        {t.signOut}
                       </button>
                     </div>
                   </div>
@@ -469,7 +473,7 @@ export const Navbar: React.FC = () => {
                     }}
                     className="w-full bg-[#1A1A1A] hover:bg-[#C5A059] text-white text-xs uppercase tracking-widest font-bold py-3 rounded-sm transition-colors flex items-center justify-center gap-2"
                   >
-                    <UserIcon className="w-4 h-4" /> Sign In / Register
+                    <UserIcon className="w-4 h-4" /> {t.signIn}
                   </button>
                 )}
               </div>
@@ -477,8 +481,8 @@ export const Navbar: React.FC = () => {
 
             {/* Mobile Drawer Footer */}
             <div className="p-4 bg-white dark:bg-[#121212] border-t border-[#E5E1DA] dark:border-[#2D2D2D] text-[10px] text-gray-500 flex justify-between items-center">
-              <span>Currency: <strong className="text-[#C5A059]">{currencyMode}</strong></span>
-              <span>Lang: <strong className="text-[#C5A059]">{language}</strong></span>
+              <span>{t.currencyPrefix}<strong className="text-[#C5A059]">{currencyMode}</strong></span>
+              <span>{t.langPrefix}<strong className="text-[#C5A059]">{language}</strong></span>
             </div>
           </div>
         </div>
